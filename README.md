@@ -1,2 +1,2 @@
-# polkascan-harvester-python
-Polkascan Harvester | Python Implementation
+# polkascan-harvester
+Polkascan Harvester Application
