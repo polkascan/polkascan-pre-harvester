@@ -1,0 +1,9 @@
+{
+    "title": "Start Harvester",
+    "type": "object",
+    "properties": {
+        "block_hash": {
+            "type": "string"
+        }
+    }
+}

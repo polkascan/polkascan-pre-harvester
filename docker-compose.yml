@@ -1,0 +1,72 @@
+version: '3.2'
+
+services:
+
+  harvester-api:
+    build: .
+    image: &app polkascan-harvester
+    ports:
+      - '8000:8000'
+    volumes:
+      - '.:/usr/src/app'
+    command: ./start.sh
+    environment: &env
+      - CELERY_BROKER=redis://redis:6379/0
+      - CELERY_BACKEND=redis://redis:6379/0
+      - PYTHONPATH=/usr/src/app
+      - ENVIRONMENT=dev
+    depends_on:
+      - redis
+      - mysql
+      - substrate-node
+
+  harvester-worker:
+    build: .
+    image: *app
+    volumes:
+      - '.:/usr/src/app'
+    command: celery -A app.tasks worker --loglevel=INFO
+    environment: *env
+    depends_on:
+      - redis
+      - mysql
+
+  harvester-beat:
+    build: .
+    image: *app
+    volumes:
+      - '.:/usr/src/app'
+    command: celery -A app.tasks beat --loglevel=INFO  --schedule="data/celerybeat-schedule" --pidfile="data/celerybeat.pid"
+    environment: *env
+    depends_on:
+      - redis
+
+  harvester-monitor:
+    build: .
+    image: *app
+    ports:
+      - '5555:5555'
+    command:  flower -A app.tasks --port=5555 --broker=redis://redis:6379/0
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:3.2.11
+
+  mysql:
+    image: mysql:latest
+    volumes:
+      - './data/mysql:/var/lib/mysql'
+    ports:
+      - '33061:3306'
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=polkascan
+
+  substrate-node:
+    image: polkasource/substrate-alexander:latest
+    ports:
+      - '30333:30333'
+      - '9933:9933'
+      - '9944:9944'
+    command: --dev --rpc-port 9933 --rpc-external --pruning=10000000
