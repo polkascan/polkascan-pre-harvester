@@ -18,7 +18,6 @@
 #
 #  main.py
 
-from app.resources.tools import PolkascanHealthCheckResource
 from app.settings import DB_CONNECTION, DEBUG
 
 import falcon
@@ -32,6 +31,8 @@ from app.middleware.sessionmanager import SQLAlchemySessionManager
 from app.resources.harvester import PolkascanStartHarvesterResource, PolkascanStopHarvesterResource, \
     PolkascanStatusHarvesterResource, PolkascanResetHarvesterResource, PolkascanProcessBlockResource, \
     PolkaScanCheckHarvesterTaskResource
+from app.resources.tools import PolkascanExtractMetadataResource, PolkascanExtractExtrinsicsResource, \
+     PolkascanHealthCheckResource, PolkascanExtractEventsResource
 
 
 # Database connection
@@ -50,3 +51,7 @@ app.add_route('/status', PolkascanStatusHarvesterResource())
 app.add_route('/reset', PolkascanResetHarvesterResource())
 app.add_route('/process', PolkascanProcessBlockResource())
 app.add_route('/task/result/{task_id}', PolkaScanCheckHarvesterTaskResource())
+
+app.add_route('/tools/metadata/extract', PolkascanExtractMetadataResource())
+app.add_route('/tools/extrinsics/extract', PolkascanExtractExtrinsicsResource())
+app.add_route('/tools/events/extract', PolkascanExtractEventsResource())
