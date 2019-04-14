@@ -109,15 +109,15 @@ class Extrinsic(BaseModel):
     unsigned = sa.Column(sa.SmallInteger(), index=True, nullable=False)
 
     address_length = sa.Column(sa.String(2))
-    address = sa.Column(sa.String(64))
-    account_index = sa.Column(sa.String(16))
+    address = sa.Column(sa.String(64), index=True)
+    account_index = sa.Column(sa.String(16), index=True)
     signature = sa.Column(sa.String(128))
     nonce = sa.Column(sa.Integer())
 
     era = sa.Column(sa.String(4))
 
     call = sa.Column(sa.String(4))
-    module_id = sa.Column(sa.String(64))
+    module_id = sa.Column(sa.String(64), index=True)
     call_id = sa.Column(sa.String(64), index=True)
     params = sa.Column(sa.JSON())
 

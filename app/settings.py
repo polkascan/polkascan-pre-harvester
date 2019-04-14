@@ -18,11 +18,15 @@
 #
 #  settings.py
 
-DB_CONNECTION = "mysql+mysqlconnector://root:root@mysql:3306/polkascan"
+import os
 
-SUBSTRATE_RPC_URL = "http://substrate-node:9933/"
+DB_NAME = os.environ.get("DB_NAME", "polkascan")
 
-DEBUG = False
+DB_CONNECTION = os.environ.get("DB_CONNECTION", "mysql+mysqlconnector://root:root@mysql:3306/{}".format(DB_NAME))
+
+SUBSTRATE_RPC_URL = os.environ.get("SUBSTRATE_RPC_URL", "http://substrate-node:9933/")
+
+DEBUG = bool(os.environ.get("DEBUG", False))
 
 try:
     from app.local_settings import *
