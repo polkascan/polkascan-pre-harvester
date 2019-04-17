@@ -148,6 +148,10 @@ class PolkascanProcessBlockResource(BaseResource):
                 resp.status = falcon.HTTP_201
                 resp.media = {'result': 'added', 'parentHash': block.parent_hash}
 
+        else:
+            resp.status = falcon.HTTP_404
+            resp.media = {'result': 'Block not found'}
+
 
 class PolkascanResetHarvesterResource(BaseResource):
 

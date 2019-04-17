@@ -18,7 +18,7 @@
 #
 #  converters.py
 
-from scalecodec.base import ScaleBytes
+from scalecodec.base import ScaleBytes, ScaleDecoder
 from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61181Decoder
 
@@ -26,7 +26,8 @@ from app.services.base import BaseService
 from substrateinterface import SubstrateInterface
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL
-from app.models.data import Extrinsic, Block, Event, Metadata
+from app.models.data import Extrinsic, Block, Event, Metadata, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
+    MetadataType, RuntimeEvent, RuntimeEventAttribute
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -43,11 +44,43 @@ class PolkascanHarvesterService(BaseService):
         self.db_session = db_session
         self.metadata_store = {}
 
+    def process_metadata_type(self, type_string, spec_version):
+        metadata_type = MetadataType.query(self.db_session).filter_by(type_string=type_string).first()
+        if not metadata_type:
+
+            # Get current Runtime configuration
+            try:
+                # TODO move logic to RuntimeConfiguration.get_decoder_class
+                decoder_obj = ScaleDecoder.get_decoder_class(type_string, ScaleBytes('0x00'))
+
+                if decoder_obj.sub_type:
+                    # Also process sub type
+                    self.process_metadata_type(decoder_obj.sub_type, spec_version)
+
+                mapped_type_string = decoder_obj.type_string
+                decoder_class_name = decoder_obj.__class__.__name__
+
+            except NotImplementedError:
+                mapped_type_string = None
+                decoder_class_name = '[not implemented]'
+
+            metadata_type = MetadataType(
+                type_string=type_string,
+                mapped_type_string=mapped_type_string,
+                decoder_class=decoder_class_name,
+                created_at_runtime_id=spec_version,
+                updated_at_runtime_id=spec_version
+            )
+        else:
+            metadata_type.updated_at_runtime_id = spec_version
+
+        metadata_type.save(self.db_session)
+
     def process_metadata(self, spec_version, block_hash):
 
         # Check if metadata already in store
         if spec_version not in self.metadata_store:
-            print('CACHE MISS')
+            print('Metadata: CACHE MISS')
 
             metadata = Metadata.query(self.db_session).get(spec_version)
 
@@ -64,14 +97,151 @@ class PolkascanHarvesterService(BaseService):
                 json_metadata = substrate.get_block_metadata(block_hash)
 
                 metadata_decoder = MetadataDecoder(ScaleBytes(json_metadata.get('result')))
+                metadata_decoder.decode()
 
+                # Store metadata in database
                 metadata = Metadata(
                     spec_version=spec_version,
                     json_metadata=json_metadata,
-                    json_metadata_decoded=metadata_decoder.decode()
+                    json_metadata_decoded=metadata_decoder.value
                 )
                 metadata.save(self.db_session)
 
+                runtime = Runtime(
+                    id=spec_version,
+                    impl_name=substrate.get_system_name(),
+                    spec_version=spec_version
+                )
+
+                runtime.save(self.db_session)
+
+                print('store version to db', metadata_decoder.version)
+
+                if not metadata_decoder.version:
+                    # Legacy V0 fallback
+                    for module in metadata_decoder.metadata.modules:
+                        runtime_module = RuntimeModule(
+                            spec_version=spec_version,
+                            module_id=module.get_identifier(),
+                            prefix=module.prefix,
+                            name=module.get_identifier(),
+                            count_call_functions=len(module.functions or []),
+                            # TODO implement
+                            count_storage_functions=0,
+                            # TODO update
+                            count_events=0
+                        )
+                        runtime_module.save(self.db_session)
+
+                        if len(module.functions or []) > 0:
+                            for idx, call in enumerate(module.functions):
+                                runtime_call = RuntimeCall(
+                                    spec_version=spec_version,
+                                    module_id=module.get_identifier(),
+                                    call_id=call.get_identifier(),
+                                    index=idx,
+                                    name=call.name,
+                                    lookup=call.lookup,
+                                    documentation='\n'.join(call.docs),
+                                    count_params=len(call.args)
+                                )
+                                runtime_call.save(self.db_session)
+
+                                for arg in call.args:
+                                    runtime_call_param = RuntimeCallParam(
+                                        runtime_call_id=runtime_call.id,
+                                        name=arg.name,
+                                        type=arg.type
+                                    )
+                                    runtime_call_param.save(self.db_session)
+
+                                    # Check if type already registered in database
+                                    self.process_metadata_type(arg.type, spec_version)
+
+                    for event_module in metadata_decoder.metadata.events_modules:
+                        for event_index, event in enumerate(event_module.events):
+                            runtime_event = RuntimeEvent(
+                                spec_version=spec_version,
+                                module_id=event_module.name,
+                                event_id=event.name,
+                                index=event_index,
+                                name=event.name,
+                                lookup=event.lookup,
+                                documentation='\n'.join(event.docs),
+                                count_attributes=len(event.args)
+                            )
+                            runtime_event.save(self.db_session)
+
+                            for arg_index, arg in enumerate(event.args):
+                                runtime_event_attr = RuntimeEventAttribute(
+                                    runtime_event_id=runtime_event.id,
+                                    index=arg_index,
+                                    type=arg
+                                )
+                                runtime_event_attr.save(self.db_session)
+
+                else:
+                    for module in metadata_decoder.metadata.modules:
+                        runtime_module = RuntimeModule(
+                            spec_version=spec_version,
+                            module_id=module.get_identifier(),
+                            prefix=module.prefix,
+                            name=module.name,
+                            count_call_functions=len(module.calls or []),
+                            # TODO implement
+                            count_storage_functions=0,
+                            count_events=len(module.events or [])
+                        )
+                        runtime_module.save(self.db_session)
+
+                        if len(module.calls or []) > 0:
+                            for idx, call in enumerate(module.calls):
+                                runtime_call = RuntimeCall(
+                                    spec_version=spec_version,
+                                    module_id=module.get_identifier(),
+                                    call_id=call.get_identifier(),
+                                    index=idx,
+                                    name=call.name,
+                                    lookup=call.lookup,
+                                    documentation='\n'.join(call.docs),
+                                    count_params=len(call.args)
+                                )
+                                runtime_call.save(self.db_session)
+
+                                for arg in call.args:
+                                    runtime_call_param = RuntimeCallParam(
+                                        runtime_call_id=runtime_call.id,
+                                        name=arg.name,
+                                        type=arg.type
+                                    )
+                                    runtime_call_param.save(self.db_session)
+
+                                    # Check if type already registered in database
+                                    self.process_metadata_type(arg.type, spec_version)
+
+                        if len(module.events or []) > 0:
+                            for event_index, event in enumerate(module.events):
+                                runtime_event = RuntimeEvent(
+                                    spec_version=spec_version,
+                                    module_id=module.get_identifier(),
+                                    event_id=event.name,
+                                    index=event_index,
+                                    name=event.name,
+                                    lookup=event.lookup,
+                                    documentation='\n'.join(event.docs),
+                                    count_attributes=len(event.args)
+                                )
+                                runtime_event.save(self.db_session)
+
+                                for arg_index, arg in enumerate(event.args):
+                                    runtime_event_attr = RuntimeEventAttribute(
+                                        runtime_event_id=runtime_event.id,
+                                        index=arg_index,
+                                        type=arg
+                                    )
+                                    runtime_event_attr.save(self.db_session)
+
+                # Put in local store
                 self.metadata_store[spec_version] = metadata_decoder
 
     def add_block(self, block_hash):

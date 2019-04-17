@@ -1,5 +1,8 @@
 #! /usr/bin/env sh
 
+# Set path
+export PYTHONPATH=$PYTHONPATH:./py-substrate-interface/:./py-scale-codec/
+
 if [ -z $ENVIRONMENT ] || [ "$ENVIRONMENT" = "dev" ]; then
     ENVIRONMENT="dev"
 fi
@@ -7,10 +10,6 @@ fi
 echo "==========================="
 echo "Environment: $ENVIRONMENT"
 echo "==========================="
-
-echo "Wait for database..."
-# Let the DB start
-sleep 15;
 
 echo "Running migrations..."
 
