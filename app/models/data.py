@@ -76,6 +76,8 @@ class Event(BaseModel):
     __tablename__ = 'data_event'
 
     block_id = sa.Column(sa.Integer(), primary_key=True)
+    block = relationship(Block, foreign_keys=[block_id], primaryjoin=block_id == Block.id)
+
     event_idx = sa.Column(sa.Integer(), primary_key=True)
 
     extrinsic_idx = sa.Column(sa.Integer(), index=True)
@@ -95,11 +97,16 @@ class Event(BaseModel):
 
     codec_error = sa.Column(sa.Boolean())
 
+    def serialize_id(self):
+        return '{}-{}'.format(self.block_id, self.event_idx)
+
 
 class Extrinsic(BaseModel):
     __tablename__ = 'data_extrinsic'
 
     block_id = sa.Column(sa.Integer(), primary_key=True)
+    block = relationship(Block, foreign_keys=[block_id], primaryjoin=block_id == Block.id)
+
     extrinsic_idx = sa.Column(sa.Integer(), primary_key=True, index=True)
 
     extrinsic_length = sa.Column(sa.String(10))

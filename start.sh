@@ -10,7 +10,7 @@ echo "==========================="
 
 echo "Wait for database..."
 # Let the DB start
-sleep 15;
+sleep 10;
 
 echo "Running migrations..."
 
