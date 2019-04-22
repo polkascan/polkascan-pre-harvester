@@ -50,21 +50,6 @@ app.conf.beat_schedule = {
 app.conf.timezone = 'UTC'
 
 
-@app.task
-def fib(n):
-    sleep(1)  # simulate slow computation
-    if n < 0:
-        return []
-    elif n == 0:
-        return [0]
-    elif n == 1:
-        return [0, 1]
-    else:
-        results = fib(n - 1)
-        results.append(results[-1] + results[-2])
-        return results
-
-
 class BaseTask(celery.Task):
 
     def __init__(self):
@@ -82,11 +67,6 @@ class BaseTask(celery.Task):
             self.session.remove()
         if hasattr(self, 'engine'):
             self.engine.engine.dispose()
-
-
-@app.task(base=BaseTask, bind=True)
-def process_metadata_recursive(self, block_number):
-    pass
 
 
 @app.task(base=BaseTask, bind=True)
@@ -139,6 +119,8 @@ def start_harvester(self, check_gaps=False):
 
     substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
 
+    block_sets = []
+
     if check_gaps:
         # Check for gaps between already harvested blocks and try to fill them first
         remaining_sets_result = Block.get_missing_block_ids(self.session)
@@ -147,19 +129,30 @@ def start_harvester(self, check_gaps=False):
 
             # Get start and end block hash
             end_block_hash = substrate.get_block_hash(int(block_set['block_from']))
-
-            print('JOB start\n========\nend_block_hash', block_set['block_from'], end_block_hash)
             start_block_hash = substrate.get_block_hash(int(block_set['block_to']))
-            print('start_block_hash', block_set['block_to'], start_block_hash)
 
+            # Start processing task
             process_block_recursive.delay(start_block_hash, end_block_hash)
+
+            block_sets.append({
+                'start_block_hash': start_block_hash,
+                'end_block_hash': end_block_hash
+            })
 
     # Continue from current finalised head
 
-    start_block_hash = substrate.get_chain_finalised_head()
+    start_block_hash = substrate.get_chain_head()
     end_block_hash = None
 
     process_block_recursive.delay(start_block_hash, end_block_hash)
 
-    return {'result': 'started'}
+    block_sets.append({
+        'start_block_hash': start_block_hash,
+        'end_block_hash': end_block_hash
+    })
+
+    return {
+        'result': 'Harvester job started',
+        'block_sets': block_sets
+    }
 
