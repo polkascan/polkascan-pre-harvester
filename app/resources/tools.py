@@ -36,13 +36,10 @@ class PolkascanExtractMetadataResource(BaseResource):
 
         if 'block_hash' in req.params:
             substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
-            json_metadata = substrate.get_block_metadata(req.params.get('block_hash'))
-            data = ScaleBytes(json_metadata.get('result'))
-
-            metadata = MetadataDecoder(data)
+            metadata = substrate.get_block_metadata(req.params.get('block_hash'))
 
             resp.status = falcon.HTTP_200
-            resp.media = metadata.decode()
+            resp.media = metadata.value
         else:
             resp.status = falcon.HTTP_BAD_REQUEST
 
@@ -62,23 +59,20 @@ class PolkascanExtractExtrinsicsResource(BaseResource):
         # Get extrinsics
         json_block = substrate.get_chain_block(req.params.get('block_hash'))
 
-        if not json_block['result']:
+        if not json_block:
             resp.status = falcon.HTTP_404
         else:
 
-            extrinsics = json_block['result']['block']['extrinsics']
+            extrinsics = json_block['block']['extrinsics']
 
             # Get metadata
-            json_metadata = substrate.get_block_metadata(json_block['result']['block']['header']['parentHash'])
-            data = ScaleBytes(json_metadata.get('result'))
-            metadata_decoder = MetadataDecoder(data)
-            metadata_decoder.decode()
+            metadata_decoder = substrate.get_block_metadata(json_block['block']['header']['parentHash'])
 
             #result = [{'runtime': substrate.get_block_runtime_version(req.params.get('block_hash')), 'metadata': metadata_result.get_data_dict()}]
             result = []
 
             for extrinsic in extrinsics:
-                if int(json_block['result']['block']['header']['number'], 16) == 61181:
+                if int(json_block['block']['header']['number'], 16) == 61181:
                     extrinsics_decoder = ExtrinsicsBlock61181Decoder(ScaleBytes(extrinsic), metadata=metadata_decoder)
                 else:
                     extrinsics_decoder = ExtrinsicsDecoder(ScaleBytes(extrinsic), metadata=metadata_decoder)
@@ -98,15 +92,10 @@ class PolkascanExtractEventsResource(BaseResource):
         json_block = substrate.get_block_header(req.params.get('block_hash'))
 
         # Get metadata
-        json_metadata = substrate.get_block_metadata(json_block['result']['parentHash'])
-        data = ScaleBytes(json_metadata.get('result'))
-        metadata_decoder = MetadataDecoder(data)
-        metadata_decoder.decode()
+        metadata_decoder = substrate.get_block_metadata(json_block['parentHash'])
 
         # Get events for block hash
-        json_events = substrate.get_block_events(req.params.get('block_hash'))
-
-        events_decoder = EventsDecoder(ScaleBytes(json_events.get('result')), metadata=metadata_decoder)
+        events_decoder = substrate.get_block_events(req.params.get('block_hash'), metadata_decoder=metadata_decoder)
 
         resp.status = falcon.HTTP_201
         resp.media = {'events': events_decoder.decode(), 'runtime': substrate.get_block_runtime_version(req.params.get('block_hash'))}

@@ -23,7 +23,7 @@ from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61181Decoder
 
 from app.services.base import BaseService
-from substrateinterface import SubstrateInterface
+from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL
 from app.models.data import Extrinsic, Block, Event, Metadata, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
@@ -80,7 +80,7 @@ class PolkascanHarvesterService(BaseService):
 
         # Check if metadata already in store
         if spec_version not in self.metadata_store:
-            print('Metadata: CACHE MISS')
+            print('Metadata: CACHE MISS', spec_version)
 
             metadata = Metadata.query(self.db_session).get(spec_version)
 
@@ -94,15 +94,12 @@ class PolkascanHarvesterService(BaseService):
             else:
                 # ==== Get block Metadata from Substrate ==================
                 substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
-                json_metadata = substrate.get_block_metadata(block_hash)
-
-                metadata_decoder = MetadataDecoder(ScaleBytes(json_metadata.get('result')))
-                metadata_decoder.decode()
+                metadata_decoder = substrate.get_block_metadata(block_hash)
 
                 # Store metadata in database
                 metadata = Metadata(
                     spec_version=spec_version,
-                    json_metadata=json_metadata,
+                    json_metadata=metadata_decoder.raw_value,
                     json_metadata_decoded=metadata_decoder.value
                 )
                 metadata.save(self.db_session)
@@ -254,10 +251,10 @@ class PolkascanHarvesterService(BaseService):
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
         json_block = substrate.get_chain_block(block_hash)
 
-        parent_hash = json_block['result']['block']['header'].pop('parentHash')
-        block_id = json_block['result']['block']['header'].pop('number')
-        extrinsics_root = json_block['result']['block']['header'].pop('extrinsicsRoot')
-        state_root = json_block['result']['block']['header'].pop('stateRoot')
+        parent_hash = json_block['block']['header'].pop('parentHash')
+        block_id = json_block['block']['header'].pop('number')
+        extrinsics_root = json_block['block']['header'].pop('extrinsicsRoot')
+        state_root = json_block['block']['header'].pop('stateRoot')
 
         # Convert block number to numeric
 
@@ -268,7 +265,7 @@ class PolkascanHarvesterService(BaseService):
         json_runtime_version = substrate.get_block_runtime_version(block_hash)
 
         # Get spec version
-        spec_version = json_runtime_version['result'].pop('specVersion', 0)
+        spec_version = json_runtime_version.pop('specVersion', 0)
 
         self.process_metadata(spec_version, block_hash)
 
@@ -277,7 +274,7 @@ class PolkascanHarvesterService(BaseService):
         if block_id > 0:
             json_parent_runtime_version = substrate.get_block_runtime_version(parent_hash)
 
-            parent_spec_version = json_parent_runtime_version['result'].pop('specVersion', 0)
+            parent_spec_version = json_parent_runtime_version.pop('specVersion', 0)
 
             self.process_metadata(parent_spec_version, parent_hash)
         else:
@@ -285,20 +282,12 @@ class PolkascanHarvesterService(BaseService):
 
         # ==== Get block events from Substrate ==================
 
-        json_events = substrate.get_block_events(block_hash)
+        extrinsic_success_idx = {}
 
-        if json_events.get('result'):
-
-            # Process events
-            events_decoder = EventsDecoder(
-                data=ScaleBytes(json_events.get('result')),
-                metadata=self.metadata_store[parent_spec_version]
-            )
-            events_decoder.decode()
+        try:
+            events_decoder = substrate.get_block_events(block_hash, self.metadata_store[parent_spec_version])
 
             event_idx = 0
-
-            extrinsic_success_idx = {}
 
             for event in events_decoder.elements:
                 model = Event(
@@ -329,12 +318,12 @@ class PolkascanHarvesterService(BaseService):
 
             events_count = len(events_decoder.elements)
 
-        else:
+        except SubstrateRequestException:
             events_count = 0
 
         # === Extract extrinsics from block ====
 
-        extrinsics = json_block['result']['block'].pop('extrinsics')
+        extrinsics = json_block['block'].pop('extrinsics')
 
         extrinsic_idx = 0
 
@@ -388,7 +377,7 @@ class PolkascanHarvesterService(BaseService):
         # Debug info
         debug_info = None
         if DEBUG:
-            debug_info = json_block['result']
+            debug_info = json_block
 
         # ==== Save data block ==================================
 
