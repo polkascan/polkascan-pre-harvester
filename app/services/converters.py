@@ -86,7 +86,7 @@ class PolkascanHarvesterService(BaseService):
 
             if metadata:
 
-                metadata_decoder = MetadataDecoder(ScaleBytes(metadata.json_metadata.get('result')))
+                metadata_decoder = MetadataDecoder(ScaleBytes(metadata.json_metadata))
                 metadata_decoder.decode()
 
                 self.metadata_store[spec_version] = metadata_decoder
@@ -99,7 +99,7 @@ class PolkascanHarvesterService(BaseService):
                 # Store metadata in database
                 metadata = Metadata(
                     spec_version=spec_version,
-                    json_metadata=metadata_decoder.raw_value,
+                    json_metadata=str(metadata_decoder.data),
                     json_metadata_decoded=metadata_decoder.value
                 )
                 metadata.save(self.db_session)
