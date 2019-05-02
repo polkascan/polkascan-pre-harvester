@@ -98,7 +98,7 @@ class PolkascanExtractEventsResource(BaseResource):
         events_decoder = substrate.get_block_events(req.params.get('block_hash'), metadata_decoder=metadata_decoder)
 
         resp.status = falcon.HTTP_201
-        resp.media = {'events': events_decoder.decode(), 'runtime': substrate.get_block_runtime_version(req.params.get('block_hash'))}
+        resp.media = {'events': events_decoder.value, 'runtime': substrate.get_block_runtime_version(req.params.get('block_hash'))}
 
 
 class PolkascanHealthCheckResource(BaseResource):
