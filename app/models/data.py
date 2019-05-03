@@ -86,8 +86,8 @@ class Event(BaseModel):
 
     spec_version_id = sa.Column(sa.Integer())
 
-    module_id = sa.Column(sa.String(64))
-    event_id = sa.Column(sa.String(64))
+    module_id = sa.Column(sa.String(64), index=True)
+    event_id = sa.Column(sa.String(64), index=True)
 
     system = sa.Column(sa.SmallInteger(), index=True, nullable=False)
     module = sa.Column(sa.SmallInteger(), index=True, nullable=False)
