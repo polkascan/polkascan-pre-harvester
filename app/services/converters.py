@@ -27,7 +27,7 @@ from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL
 from app.models.data import Extrinsic, Block, Event, Metadata, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
-    MetadataType, RuntimeEvent, RuntimeEventAttribute
+    RuntimeEvent, RuntimeEventAttribute, RuntimeType
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -45,8 +45,10 @@ class PolkascanHarvesterService(BaseService):
         self.metadata_store = {}
 
     def process_metadata_type(self, type_string, spec_version):
-        metadata_type = MetadataType.query(self.db_session).filter_by(type_string=type_string).first()
-        if not metadata_type:
+
+        runtime_type = RuntimeType.query(self.db_session).filter_by(type_string=type_string, spec_version=spec_version).first()
+
+        if not runtime_type:
 
             # Get current Runtime configuration
             try:
@@ -57,24 +59,18 @@ class PolkascanHarvesterService(BaseService):
                     # Also process sub type
                     self.process_metadata_type(decoder_obj.sub_type, spec_version)
 
-                mapped_type_string = decoder_obj.type_string
                 decoder_class_name = decoder_obj.__class__.__name__
 
             except NotImplementedError:
-                mapped_type_string = None
                 decoder_class_name = '[not implemented]'
 
-            metadata_type = MetadataType(
+            runtime_type = RuntimeType(
+                spec_version=spec_version,
                 type_string=type_string,
-                mapped_type_string=mapped_type_string,
                 decoder_class=decoder_class_name,
-                created_at_runtime_id=spec_version,
-                updated_at_runtime_id=spec_version
             )
-        else:
-            metadata_type.updated_at_runtime_id = spec_version
 
-        metadata_type.save(self.db_session)
+            runtime_type.save(self.db_session)
 
     def process_metadata(self, spec_version, block_hash):
 

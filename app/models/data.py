@@ -104,7 +104,7 @@ class Event(BaseModel):
 class Extrinsic(BaseModel):
     __tablename__ = 'data_extrinsic'
 
-    block_id = sa.Column(sa.Integer(), primary_key=True)
+    block_id = sa.Column(sa.Integer(), primary_key=True, index=True)
     block = relationship(Block, foreign_keys=[block_id], primaryjoin=block_id == Block.id)
 
     extrinsic_idx = sa.Column(sa.Integer(), primary_key=True, index=True)
@@ -157,17 +157,6 @@ class Runtime(BaseModel):
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
     impl_name = sa.Column(sa.String(255))
     spec_version = sa.Column(sa.Integer(), nullable=False)
-
-
-class MetadataType(BaseModel):
-    __tablename__ = 'metadata_type'
-
-    id = sa.Column(sa.Integer(), primary_key=True)
-    type_string = sa.Column(sa.String(255), unique=True)
-    mapped_type_string = sa.Column(sa.String(255), nullable=True)
-    decoder_class = sa.Column(sa.String(255), nullable=True)
-    created_at_runtime_id = sa.Column(sa.Integer(), nullable=True)
-    updated_at_runtime_id = sa.Column(sa.Integer(), nullable=True)
 
 
 class RuntimeModule(BaseModel):
@@ -242,3 +231,11 @@ class RuntimeEventAttribute(BaseModel):
     type = sa.Column(sa.String(255))
 
 
+class RuntimeType(BaseModel):
+    __tablename__ = 'runtime_type'
+    __table_args__ = (sa.UniqueConstraint('spec_version', 'type_string'),)
+
+    id = sa.Column(sa.Integer(), primary_key=True)
+    spec_version = sa.Column(sa.Integer(), nullable=False)
+    type_string = sa.Column(sa.String(255))
+    decoder_class = sa.Column(sa.String(255), nullable=True)
