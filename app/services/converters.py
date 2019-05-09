@@ -18,6 +18,7 @@
 #
 #  converters.py
 
+from hashlib import blake2b
 from scalecodec.base import ScaleBytes, ScaleDecoder
 from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61181Decoder
@@ -326,27 +327,26 @@ class PolkascanHarvesterService(BaseService):
         for extrinsic in extrinsics:
 
             # Save to data table
-
-            if block_id == 61181:
-                # TODO TEMP fix
-                extrinsics_decoder = ExtrinsicsBlock61181Decoder(
-                    data=ScaleBytes(extrinsic),
-                    metadata=self.metadata_store[parent_spec_version]
-                )
-            else:
-                extrinsics_decoder = ExtrinsicsDecoder(
-                    data=ScaleBytes(extrinsic),
-                    metadata=self.metadata_store[parent_spec_version]
-                )
+            extrinsics_decoder = ExtrinsicsDecoder(
+                data=ScaleBytes(extrinsic),
+                metadata=self.metadata_store[parent_spec_version]
+            )
 
             extrinsic_data = extrinsics_decoder.decode()
 
             # Lookup result of extrinsic
             extrinsic_success = extrinsic_success_idx.get(extrinsic_idx, False)
 
+            # Generate hash for signed extrinsics
+            if extrinsics_decoder.contains_transaction:
+                extrinsic_hash = blake2b(bytes.fromhex(extrinsic[2:]), digest_size=32).digest().hex()
+            else:
+                extrinsic_hash = None
+
             model = Extrinsic(
                 block_id=block_id,
                 extrinsic_idx=extrinsic_idx,
+                extrinsic_hash=extrinsic_hash,
                 extrinsic_length=extrinsic_data.get('extrinsic_length'),
                 extrinsic_version=extrinsic_data.get('version_info'),
                 signed=extrinsics_decoder.contains_transaction,

@@ -108,6 +108,7 @@ class Extrinsic(BaseModel):
     block = relationship(Block, foreign_keys=[block_id], primaryjoin=block_id == Block.id)
 
     extrinsic_idx = sa.Column(sa.Integer(), primary_key=True, index=True)
+    extrinsic_hash = sa.Column(sa.String(64), index=True, nullable=True)
 
     extrinsic_length = sa.Column(sa.String(10))
     extrinsic_version = sa.Column(sa.String(2))
