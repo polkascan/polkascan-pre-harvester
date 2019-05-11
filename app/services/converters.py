@@ -327,10 +327,17 @@ class PolkascanHarvesterService(BaseService):
         for extrinsic in extrinsics:
 
             # Save to data table
-            extrinsics_decoder = ExtrinsicsDecoder(
-                data=ScaleBytes(extrinsic),
-                metadata=self.metadata_store[parent_spec_version]
-            )
+            if block_hash == '0x911a0bf66d5494b6b24f612b3cc14841134c6b73ab9ce02f7e012973070e5661':
+                # TODO TEMP fix for exception in Alexander network, remove when network is obsolete
+                extrinsics_decoder = ExtrinsicsBlock61181Decoder(
+                    data=ScaleBytes(extrinsic),
+                    metadata=self.metadata_store[parent_spec_version]
+                )
+            else:
+                extrinsics_decoder = ExtrinsicsDecoder(
+                    data=ScaleBytes(extrinsic),
+                    metadata=self.metadata_store[parent_spec_version]
+                )
 
             extrinsic_data = extrinsics_decoder.decode()
 
