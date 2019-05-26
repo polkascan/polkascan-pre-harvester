@@ -30,7 +30,7 @@ from substrateinterface import SubstrateInterface
 from app.settings import SUBSTRATE_RPC_URL
 
 
-class PolkascanExtractMetadataResource(BaseResource):
+class ExtractMetadataResource(BaseResource):
 
     def on_get(self, req, resp):
 
@@ -50,7 +50,7 @@ class PolkascanExtractMetadataResource(BaseResource):
         resp.media = metadata.process()
 
 
-class PolkascanExtractExtrinsicsResource(BaseResource):
+class ExtractExtrinsicsResource(BaseResource):
 
     def on_get(self, req, resp):
 
@@ -82,7 +82,7 @@ class PolkascanExtractExtrinsicsResource(BaseResource):
             resp.media = result
 
 
-class PolkascanExtractEventsResource(BaseResource):
+class ExtractEventsResource(BaseResource):
 
     def on_get(self, req, resp):
 
@@ -101,6 +101,6 @@ class PolkascanExtractEventsResource(BaseResource):
         resp.media = {'events': events_decoder.value, 'runtime': substrate.get_block_runtime_version(req.params.get('block_hash'))}
 
 
-class PolkascanHealthCheckResource(BaseResource):
+class HealthCheckResource(BaseResource):
     def on_get(self, req, resp):
         resp.media = {'status': 'OK'}
