@@ -17,8 +17,11 @@
 #  along with Polkascan. If not, see <http://www.gnu.org/licenses/>.
 #
 #  converters.py
+import math
 
-from hashlib import blake2b
+import dateutil.parser
+import pytz
+
 from scalecodec.base import ScaleBytes, ScaleDecoder
 from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61181Decoder
@@ -27,8 +30,8 @@ from app.services.base import BaseService
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL
-from app.models.data import Extrinsic, Block, Event, Metadata, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
-    RuntimeEvent, RuntimeEventAttribute, RuntimeType
+from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
+    RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -73,17 +76,19 @@ class PolkascanHarvesterService(BaseService):
 
             runtime_type.save(self.db_session)
 
-    def process_metadata(self, spec_version, block_hash):
+    def process_metadata(self, runtime_version_data, block_hash):
+
+        spec_version = runtime_version_data.get('specVersion', 0)
 
         # Check if metadata already in store
         if spec_version not in self.metadata_store:
             print('Metadata: CACHE MISS', spec_version)
 
-            metadata = Metadata.query(self.db_session).get(spec_version)
+            runtime = Runtime.query(self.db_session).get(spec_version)
 
-            if metadata:
+            if runtime:
 
-                metadata_decoder = MetadataDecoder(ScaleBytes(metadata.json_metadata))
+                metadata_decoder = MetadataDecoder(ScaleBytes(runtime.json_metadata))
                 metadata_decoder.decode()
 
                 self.metadata_store[spec_version] = metadata_decoder
@@ -94,17 +99,20 @@ class PolkascanHarvesterService(BaseService):
                 metadata_decoder = substrate.get_block_metadata(block_hash)
 
                 # Store metadata in database
-                metadata = Metadata(
-                    spec_version=spec_version,
-                    json_metadata=str(metadata_decoder.data),
-                    json_metadata_decoded=metadata_decoder.value
-                )
-                metadata.save(self.db_session)
-
                 runtime = Runtime(
                     id=spec_version,
-                    impl_name=substrate.get_system_name(),
-                    spec_version=spec_version
+                    impl_name=runtime_version_data["implName"],
+                    impl_version=runtime_version_data["implVersion"],
+                    spec_name=runtime_version_data["specName"],
+                    spec_version=spec_version,
+                    json_metadata=str(metadata_decoder.data),
+                    json_metadata_decoded=metadata_decoder.value,
+                    apis=runtime_version_data["apis"],
+                    authoring_version=runtime_version_data["authoringVersion"],
+                    count_call_functions=0,
+                    count_events=0,
+                    count_modules=len(metadata_decoder.metadata.modules),
+                    count_storage_functions=0
                 )
 
                 runtime.save(self.db_session)
@@ -120,9 +128,7 @@ class PolkascanHarvesterService(BaseService):
                             prefix=module.prefix,
                             name=module.get_identifier(),
                             count_call_functions=len(module.functions or []),
-                            # TODO implement
-                            count_storage_functions=0,
-                            # TODO update
+                            count_storage_functions=len(module.storage or []),
                             count_events=0
                         )
                         runtime_module.save(self.db_session)
@@ -166,6 +172,8 @@ class PolkascanHarvesterService(BaseService):
                             )
                             runtime_event.save(self.db_session)
 
+                            runtime_module.count_events += 1
+
                             for arg_index, arg in enumerate(event.args):
                                 runtime_event_attr = RuntimeEventAttribute(
                                     runtime_event_id=runtime_event.id,
@@ -173,6 +181,8 @@ class PolkascanHarvesterService(BaseService):
                                     type=arg
                                 )
                                 runtime_event_attr.save(self.db_session)
+
+                    runtime_module.save(self.db_session)
 
                 else:
                     for module in metadata_decoder.metadata.modules:
@@ -182,11 +192,15 @@ class PolkascanHarvesterService(BaseService):
                             prefix=module.prefix,
                             name=module.name,
                             count_call_functions=len(module.calls or []),
-                            # TODO implement
-                            count_storage_functions=0,
+                            count_storage_functions=len(module.storage or []),
                             count_events=len(module.events or [])
                         )
                         runtime_module.save(self.db_session)
+
+                        # Update totals in runtime
+                        runtime.count_call_functions += runtime_module.count_call_functions
+                        runtime.count_events += runtime_module.count_events
+                        runtime.count_storage_functions += runtime_module.count_storage_functions
 
                         if len(module.calls or []) > 0:
                             for idx, call in enumerate(module.calls):
@@ -235,6 +249,63 @@ class PolkascanHarvesterService(BaseService):
                                     )
                                     runtime_event_attr.save(self.db_session)
 
+                        if len(module.storage or []) > 0:
+                            for idx, storage in enumerate(module.storage):
+
+                                # Determine type
+                                type_hasher = None
+                                type_key1 = None
+                                type_key2 = None
+                                type_value = None
+                                type_is_linked = None
+                                type_key2hasher = None
+
+                                if storage.type.get('PlainType'):
+                                    type_value = storage.type.get('PlainType')
+
+                                elif storage.type.get('MapType'):
+                                    type_hasher = storage.type['MapType'].get('hasher')
+                                    type_key1 = storage.type['MapType'].get('key')
+                                    type_value = storage.type['MapType'].get('value')
+                                    type_is_linked = storage.type['MapType'].get('isLinked', False)
+
+                                elif storage.type.get('DoubleMapType'):
+                                    type_hasher = storage.type['DoubleMapType'].get('hasher')
+                                    type_key1 = storage.type['DoubleMapType'].get('key1')
+                                    type_key2 = storage.type['DoubleMapType'].get('key2')
+                                    type_value = storage.type['DoubleMapType'].get('value')
+                                    type_key2hasher = storage.type['DoubleMapType'].get('key2Hasher')
+
+                                runtime_storage = RuntimeStorage(
+                                    spec_version=spec_version,
+                                    module_id=module.get_identifier(),
+                                    index=idx,
+                                    name=storage.name,
+                                    lookup=None,
+                                    default=storage.fallback,
+                                    modifier=storage.modifier,
+                                    type_hasher=type_hasher,
+                                    type_key1=type_key1,
+                                    type_key2=type_key2,
+                                    type_value=type_value,
+                                    type_is_linked=type_is_linked,
+                                    type_key2hasher=type_key2hasher,
+                                    documentation='\n'.join(storage.docs)
+                                )
+                                runtime_storage.save(self.db_session)
+
+                                # Check if types already registered in database
+
+                                self.process_metadata_type(type_value, spec_version)
+
+                                if type_key1:
+                                    self.process_metadata_type(type_key1, spec_version)
+
+                                if type_key2:
+                                    self.process_metadata_type(type_key2, spec_version)
+
+                    runtime.save(self.db_session)
+
                 # Put in local store
                 self.metadata_store[spec_version] = metadata_decoder
 
@@ -244,6 +315,34 @@ class PolkascanHarvesterService(BaseService):
         if Block.query(self.db_session).filter_by(hash=block_hash).count() > 0:
             raise BlockAlreadyAdded(block_hash)
 
+        # Set initial counters
+        count_extrinsics_unsigned = 0
+        count_extrinsics_signed = 0
+        count_extrinsics_error = 0
+        count_extrinsics_success = 0
+        count_extrinsics_signedby_address = 0
+        count_extrinsics_signedby_index = 0
+
+        count_events_system = 0
+        count_events_module = 0
+        count_events_extrinsic = 0
+        count_events_finalization = 0
+
+        count_accounts_new = 0
+
+        block_datetime = None
+        block_parent_datetime = None
+        block_year = None
+        block_month = None
+        block_week = None
+        block_day = None
+        block_hour = None
+        block_full_month = None
+        block_full_week = None
+        block_full_day = None
+        block_full_hour = None
+        blocktime = 0
+
         # Extract data from json_block
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
         json_block = substrate.get_chain_block(block_hash)
@@ -252,6 +351,7 @@ class PolkascanHarvesterService(BaseService):
         block_id = json_block['block']['header'].pop('number')
         extrinsics_root = json_block['block']['header'].pop('extrinsicsRoot')
         state_root = json_block['block']['header'].pop('stateRoot')
+        digest_logs = json_block['block']['header'].get('digest', {}).pop('logs', None)
 
         # Convert block number to numeric
 
@@ -262,18 +362,18 @@ class PolkascanHarvesterService(BaseService):
         json_runtime_version = substrate.get_block_runtime_version(block_hash)
 
         # Get spec version
-        spec_version = json_runtime_version.pop('specVersion', 0)
+        spec_version = json_runtime_version.get('specVersion', 0)
 
-        self.process_metadata(spec_version, block_hash)
+        self.process_metadata(json_runtime_version, block_hash)
 
         # ==== Get parent block runtime ===================
 
         if block_id > 0:
             json_parent_runtime_version = substrate.get_block_runtime_version(parent_hash)
 
-            parent_spec_version = json_parent_runtime_version.pop('specVersion', 0)
+            parent_spec_version = json_parent_runtime_version.get('specVersion', 0)
 
-            self.process_metadata(parent_spec_version, parent_hash)
+            self.process_metadata(json_parent_runtime_version, parent_hash)
         else:
             parent_spec_version = spec_version
 
@@ -302,12 +402,31 @@ class PolkascanHarvesterService(BaseService):
                     codec_error=False
                 )
 
-                # Store result of extrinsic
-                if event.value['module_id'] == 'system' and event.value['event_id'] == 'ExtrinsicSuccess':
-                    extrinsic_success_idx[event.value['extrinsic_idx']] = True
+                # Process event
 
-                if event.value['module_id'] == 'system' and event.value['event_id'] == 'ExtrinsicFailed':
-                    extrinsic_success_idx[event.value['extrinsic_idx']] = False
+                if event.value['phase'] == 0:
+                    count_events_extrinsic += 1
+                elif event.value['phase'] == 1:
+                    count_events_finalization += 1
+
+                if event.value['module_id'] == 'system':
+
+                    count_events_system += 1
+
+                    # Store result of extrinsic
+                    if event.value['event_id'] == 'ExtrinsicSuccess':
+                        extrinsic_success_idx[event.value['extrinsic_idx']] = True
+                        count_extrinsics_success += 1
+
+                    if event.value['event_id'] == 'ExtrinsicFailed':
+                        extrinsic_success_idx[event.value['extrinsic_idx']] = False
+                        count_extrinsics_error += 1
+                else:
+
+                    count_events_module += 1
+
+                    if event.value['module_id'] == 'balances' and event.value['event_id'] == 'NewAccount':
+                        count_accounts_new += 1
 
                 model.save(self.db_session)
 
@@ -352,9 +471,12 @@ class PolkascanHarvesterService(BaseService):
                 extrinsic_version=extrinsic_data.get('version_info'),
                 signed=extrinsics_decoder.contains_transaction,
                 unsigned=not extrinsics_decoder.contains_transaction,
+                signedby_address=bool(extrinsics_decoder.contains_transaction and extrinsic_data.get('account_id')),
+                signedby_index=bool(extrinsics_decoder.contains_transaction and extrinsic_data.get('account_index')),
                 address_length=extrinsic_data.get('account_length'),
                 address=extrinsic_data.get('account_id'),
                 account_index=extrinsic_data.get('account_index'),
+                account_idx=extrinsic_data.get('account_idx'),
                 signature=extrinsic_data.get('signature'),
                 nonce=extrinsic_data.get('nonce'),
                 era=extrinsic_data.get('era'),
@@ -370,6 +492,33 @@ class PolkascanHarvesterService(BaseService):
             model.save(self.db_session)
 
             extrinsic_idx += 1
+
+            # Process extrinsic
+            if extrinsics_decoder.contains_transaction:
+                count_extrinsics_signed += 1
+
+                if model.signedby_address:
+                    count_extrinsics_signedby_address += 1
+                if model.signedby_index:
+                    count_extrinsics_signedby_index += 1
+
+            else:
+                count_extrinsics_unsigned += 1
+
+            if model.module_id == 'timestamp' and model.call_id == 'set':
+                # Store block date time related fields
+                for param in model.params:
+                    if param.get('name') == 'now':
+                        block_datetime = dateutil.parser.parse(param.get('value')).replace(tzinfo=pytz.UTC)
+                        block_year = block_datetime.year
+                        block_month = block_datetime.month
+                        block_week = block_datetime.strftime("%W")
+                        block_day = block_datetime.day
+                        block_hour = block_datetime.hour
+                        block_full_month = block_datetime.strftime("%Y%m")
+                        block_full_week = block_datetime.strftime("%Y%W")
+                        block_full_day = block_datetime.strftime("%Y%m%d")
+                        block_full_hour = block_datetime.strftime("%Y%m%d%H")
 
         # Debug info
         debug_info = None
@@ -387,7 +536,34 @@ class PolkascanHarvesterService(BaseService):
             extrinsics_root=extrinsics_root,
             count_extrinsics=len(extrinsics),
             count_events=events_count,
+            count_accounts_new=count_accounts_new,
+            count_events_extrinsic=count_events_extrinsic,
+            count_events_finalization=count_events_finalization,
+            count_events_module=count_events_module,
+            count_events_system=count_events_system,
+            count_extrinsics_error=count_extrinsics_error,
+            count_extrinsics_signed=count_extrinsics_signed,
+            count_extrinsics_signedby_address=count_extrinsics_signedby_address,
+            count_extrinsics_signedby_index=count_extrinsics_signedby_index,
+            count_extrinsics_success=count_extrinsics_success,
+            count_extrinsics_unsigned=count_extrinsics_unsigned,
+            range10000=math.floor(block_id/10000),
+            range100000=math.floor(block_id/100000),
+            range1000000=math.floor(block_id/1000000),
+            datetime=block_datetime,
+            parent_datetime=block_parent_datetime,
+            blocktime=blocktime,
+            year=block_year,
+            month=block_month,
+            week=block_week,
+            day=block_day,
+            hour=block_hour,
+            full_month=block_full_month,
+            full_week=block_full_week,
+            full_day=block_full_day,
+            full_hour=block_full_hour,
             spec_version_id=spec_version,
+            logs=digest_logs,
             debug_info=debug_info
         )
 
