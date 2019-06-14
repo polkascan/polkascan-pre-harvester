@@ -18,6 +18,3 @@
 #
 #  __init__.py
 
-from .block import *
-from .extrinsic import *
-from .event import *

@@ -16,8 +16,6 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Polkascan. If not, see <http://www.gnu.org/licenses/>.
 #
-#  __init__.py
+#  block.py
+#
 
-from .block import *
-from .extrinsic import *
-from .event import *

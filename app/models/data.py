@@ -20,6 +20,7 @@
 
 import sqlalchemy as sa
 from sqlalchemy import text
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import relationship
 
 from app.models.base import BaseModel
@@ -165,6 +166,85 @@ class Extrinsic(BaseModel):
 
     def serialize_id(self):
         return '{}-{}'.format(self.block_id, self.extrinsic_idx)
+
+
+class Log(BaseModel):
+    __tablename__ = 'data_log'
+
+    block_id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    log_idx = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    type_id = sa.Column(sa.Integer())
+    type = sa.Column(sa.String(64))
+    data = sa.Column(sa.JSON())
+
+
+class Account(BaseModel):
+    __tablename__ = 'data_account'
+
+    id = sa.Column(sa.String(64), primary_key=True)
+    address = sa.Column(sa.String(48), index=True)
+    balance_at_creation = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    created_at_block = sa.Column(sa.Integer())
+    created_at_extrinsic = sa.Column(sa.Integer())
+    created_at_event = sa.Column(sa.Integer())
+    referenced_at_block = sa.Column(sa.Integer())
+    reaped_at_block = sa.Column(sa.Integer())
+    reaped = sa.Column(sa.Boolean, default=False)
+
+
+class Session(BaseModel):
+    __tablename__ = 'data_session'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    start_at_block = sa.Column(sa.Integer())
+    end_at_block = sa.Column(sa.Integer())
+    era = sa.Column(sa.Integer())
+    era_idx = sa.Column(sa.Integer())
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    created_at_extrinsic = sa.Column(sa.Integer())
+    created_at_event = sa.Column(sa.Integer())
+    count_blocks = sa.Column(sa.Integer())
+    count_validators = sa.Column(sa.Integer())
+    count_nominators = sa.Column(sa.Integer())
+
+
+class AccountIndex(BaseModel):
+    __tablename__ = 'data_account_index'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    account = sa.Column(sa.String(64), index=True)
+    account_at_creation = sa.Column(sa.String(64))
+    created_at_block = sa.Column(sa.Integer())
+    created_at_extrinsic = sa.Column(sa.Integer())
+    created_at_event = sa.Column(sa.Integer())
+    referenced_at_block = sa.Column(sa.Integer())
+    reaped_at_block = sa.Column(sa.Integer())
+    reaped = sa.Column(sa.Boolean, default=False)
+
+
+class DemocracyProposal(BaseModel):
+    __tablename__ = 'data_democracy_proposal'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    proposal = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+    bond = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    created_at_extrinsic = sa.Column(sa.Integer())
+    created_at_event = sa.Column(sa.Integer())
+    status = sa.Column(sa.String(64))
+
+
+class Contract(BaseModel):
+    __tablename__ = 'data_contract'
+
+    code_hash = sa.Column(sa.String(64), primary_key=True)
+    bytecode = sa.Column(LONGTEXT())
+    source = sa.Column(LONGTEXT())
+    abi = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+    compiler = sa.Column(sa.String(64))
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    created_at_extrinsic = sa.Column(sa.Integer())
+    created_at_event = sa.Column(sa.Integer())
 
 
 class Runtime(BaseModel):

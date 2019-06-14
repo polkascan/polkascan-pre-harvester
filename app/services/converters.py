@@ -19,14 +19,11 @@
 #  converters.py
 import math
 
-import dateutil.parser
-import pytz
-
 from scalecodec.base import ScaleBytes, ScaleDecoder
 from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61181Decoder
 
-from app.services.base import BaseService
+from app.services.base import BaseService, ProcessorRegistry
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL
@@ -57,6 +54,7 @@ class PolkascanHarvesterService(BaseService):
             # Get current Runtime configuration
             try:
                 # TODO move logic to RuntimeConfiguration.get_decoder_class
+                # TODO FIX ScaleBytes('0x00') does not process Option<*> properly
                 decoder_obj = ScaleDecoder.get_decoder_class(type_string, ScaleBytes('0x00'))
 
                 if decoder_obj.sub_type:
@@ -315,34 +313,6 @@ class PolkascanHarvesterService(BaseService):
         if Block.query(self.db_session).filter_by(hash=block_hash).count() > 0:
             raise BlockAlreadyAdded(block_hash)
 
-        # Set initial counters
-        count_extrinsics_unsigned = 0
-        count_extrinsics_signed = 0
-        count_extrinsics_error = 0
-        count_extrinsics_success = 0
-        count_extrinsics_signedby_address = 0
-        count_extrinsics_signedby_index = 0
-
-        count_events_system = 0
-        count_events_module = 0
-        count_events_extrinsic = 0
-        count_events_finalization = 0
-
-        count_accounts_new = 0
-
-        block_datetime = None
-        block_parent_datetime = None
-        block_year = None
-        block_month = None
-        block_week = None
-        block_day = None
-        block_hour = None
-        block_full_month = None
-        block_full_week = None
-        block_full_day = None
-        block_full_hour = None
-        blocktime = 0
-
         # Extract data from json_block
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
         json_block = substrate.get_chain_block(block_hash)
@@ -354,7 +324,6 @@ class PolkascanHarvesterService(BaseService):
         digest_logs = json_block['block']['header'].get('digest', {}).pop('logs', None)
 
         # Convert block number to numeric
-
         if not block_id.isnumeric():
             block_id = int(block_id, 16)
 
@@ -377,9 +346,39 @@ class PolkascanHarvesterService(BaseService):
         else:
             parent_spec_version = spec_version
 
-        # ==== Get block events from Substrate ==================
+        # ==== Set initial block properties =====================
 
+        block = Block(
+            id=block_id,
+            parent_id=block_id - 1,
+            hash=block_hash,
+            parent_hash=parent_hash,
+            state_root=state_root,
+            extrinsics_root=extrinsics_root,
+            blocktime=0,
+            count_extrinsics=0,
+            count_events=0,
+            count_accounts_new=0,
+            count_events_extrinsic=0,
+            count_events_finalization=0,
+            count_events_module=0,
+            count_events_system=0,
+            count_extrinsics_error=0,
+            count_extrinsics_signed=0,
+            count_extrinsics_signedby_address=0,
+            count_extrinsics_signedby_index=0,
+            count_extrinsics_success=0,
+            count_extrinsics_unsigned=0,
+            range10000=math.floor(block_id / 10000),
+            range100000=math.floor(block_id / 100000),
+            range1000000=math.floor(block_id / 1000000),
+            spec_version_id=spec_version,
+            logs=digest_logs
+        )
+
+        # ==== Get block events from Substrate ==================
         extrinsic_success_idx = {}
+        events = []
 
         try:
             events_decoder = substrate.get_block_events(block_hash, self.metadata_store[parent_spec_version])
@@ -405,45 +404,48 @@ class PolkascanHarvesterService(BaseService):
                 # Process event
 
                 if event.value['phase'] == 0:
-                    count_events_extrinsic += 1
+                    block.count_events_extrinsic += 1
                 elif event.value['phase'] == 1:
-                    count_events_finalization += 1
+                    block.count_events_finalization += 1
 
                 if event.value['module_id'] == 'system':
 
-                    count_events_system += 1
+                    block.count_events_system += 1
 
                     # Store result of extrinsic
                     if event.value['event_id'] == 'ExtrinsicSuccess':
                         extrinsic_success_idx[event.value['extrinsic_idx']] = True
-                        count_extrinsics_success += 1
+                        block.count_extrinsics_success += 1
 
                     if event.value['event_id'] == 'ExtrinsicFailed':
                         extrinsic_success_idx[event.value['extrinsic_idx']] = False
-                        count_extrinsics_error += 1
+                        block.count_extrinsics_error += 1
                 else:
 
-                    count_events_module += 1
-
-                    if event.value['module_id'] == 'balances' and event.value['event_id'] == 'NewAccount':
-                        count_accounts_new += 1
+                    block.count_events_module += 1
 
                 model.save(self.db_session)
 
+                events.append(model)
+
                 event_idx += 1
 
-            events_count = len(events_decoder.elements)
+            block.count_events = len(events_decoder.elements)
 
         except SubstrateRequestException:
-            events_count = 0
+            block.count_events = 0
 
         # === Extract extrinsics from block ====
 
-        extrinsics = json_block['block'].pop('extrinsics')
+        extrinsics_data = json_block['block'].pop('extrinsics')
+
+        block.count_extrinsics = len(extrinsics_data)
 
         extrinsic_idx = 0
 
-        for extrinsic in extrinsics:
+        extrinsics = []
+
+        for extrinsic in extrinsics_data:
 
             # Save to data table
             if block_hash == '0x911a0bf66d5494b6b24f612b3cc14841134c6b73ab9ce02f7e012973070e5661':
@@ -491,83 +493,43 @@ class PolkascanHarvesterService(BaseService):
             )
             model.save(self.db_session)
 
+            extrinsics.append(model)
+
             extrinsic_idx += 1
 
             # Process extrinsic
             if extrinsics_decoder.contains_transaction:
-                count_extrinsics_signed += 1
+                block.count_extrinsics_signed += 1
 
                 if model.signedby_address:
-                    count_extrinsics_signedby_address += 1
+                    block.count_extrinsics_signedby_address += 1
                 if model.signedby_index:
-                    count_extrinsics_signedby_index += 1
+                    block.count_extrinsics_signedby_index += 1
 
             else:
-                count_extrinsics_unsigned += 1
+                block.count_extrinsics_unsigned += 1
 
-            if model.module_id == 'timestamp' and model.call_id == 'set':
-                # Store block date time related fields
-                for param in model.params:
-                    if param.get('name') == 'now':
-                        block_datetime = dateutil.parser.parse(param.get('value')).replace(tzinfo=pytz.UTC)
-                        block_year = block_datetime.year
-                        block_month = block_datetime.month
-                        block_week = block_datetime.strftime("%W")
-                        block_day = block_datetime.day
-                        block_hour = block_datetime.hour
-                        block_full_month = block_datetime.strftime("%Y%m")
-                        block_full_week = block_datetime.strftime("%Y%W")
-                        block_full_day = block_datetime.strftime("%Y%m%d")
-                        block_full_hour = block_datetime.strftime("%Y%m%d%H")
+            # Process extrinsic processors
+            for processor_class in ProcessorRegistry().get_extrinsic_processors(model.module_id, model.call_id):
+                extrinsic_processor = processor_class(block, model)
+                extrinsic_processor.process(self.db_session)
+
+        # Process event processors
+        for event in events:
+            extrinsic = None
+            if event.extrinsic_idx is not None:
+                extrinsic = extrinsics[event.extrinsic_idx]
+
+            for processor_class in ProcessorRegistry().get_event_processors(event.module_id, event.event_id):
+                event_processor = processor_class(block, event, extrinsic)
+                event_processor.process(self.db_session)
 
         # Debug info
-        debug_info = None
         if DEBUG:
-            debug_info = json_block
+            block.debug_info = json_block
 
         # ==== Save data block ==================================
-
-        block = Block(
-            id=block_id,
-            parent_id=block_id - 1,
-            hash=block_hash,
-            parent_hash=parent_hash,
-            state_root=state_root,
-            extrinsics_root=extrinsics_root,
-            count_extrinsics=len(extrinsics),
-            count_events=events_count,
-            count_accounts_new=count_accounts_new,
-            count_events_extrinsic=count_events_extrinsic,
-            count_events_finalization=count_events_finalization,
-            count_events_module=count_events_module,
-            count_events_system=count_events_system,
-            count_extrinsics_error=count_extrinsics_error,
-            count_extrinsics_signed=count_extrinsics_signed,
-            count_extrinsics_signedby_address=count_extrinsics_signedby_address,
-            count_extrinsics_signedby_index=count_extrinsics_signedby_index,
-            count_extrinsics_success=count_extrinsics_success,
-            count_extrinsics_unsigned=count_extrinsics_unsigned,
-            range10000=math.floor(block_id/10000),
-            range100000=math.floor(block_id/100000),
-            range1000000=math.floor(block_id/1000000),
-            datetime=block_datetime,
-            parent_datetime=block_parent_datetime,
-            blocktime=blocktime,
-            year=block_year,
-            month=block_month,
-            week=block_week,
-            day=block_day,
-            hour=block_hour,
-            full_month=block_full_month,
-            full_week=block_full_week,
-            full_day=block_full_day,
-            full_hour=block_full_hour,
-            spec_version_id=spec_version,
-            logs=digest_logs,
-            debug_info=debug_info
-        )
 
         block.save(self.db_session)
 
         return block
-
