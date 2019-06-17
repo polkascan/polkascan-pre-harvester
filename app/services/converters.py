@@ -524,6 +524,11 @@ class PolkascanHarvesterService(BaseService):
                 event_processor = processor_class(block, event, extrinsic)
                 event_processor.process(self.db_session)
 
+        # Process block processors
+        for processor_class in ProcessorRegistry().get_block_processors():
+            block_processor = processor_class(block)
+            block_processor.process(self.db_session)
+
         # Debug info
         if DEBUG:
             block.debug_info = json_block

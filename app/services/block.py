@@ -18,4 +18,27 @@
 #
 #  block.py
 #
+from app.models.data import Log
+from scalecodec.base import ScaleBytes
 
+from app.services.base import BlockProcessor
+from scalecodec.block import LogDigest
+
+
+class LogBlockProcessor(BlockProcessor):
+
+    def process(self, db_session):
+
+        for idx, log_data in enumerate(self.block.logs):
+            log_digest = LogDigest(ScaleBytes(log_data))
+            log_digest.decode()
+
+            log = Log(
+                block_id=self.block.id,
+                log_idx=idx,
+                type_id=log_digest.index,
+                type=log_digest.index_value,
+                data=log_digest.value,
+            )
+
+            log.save(db_session)
