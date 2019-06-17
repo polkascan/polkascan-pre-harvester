@@ -47,21 +47,26 @@ class NewAccountEventProcessor(EventProcessor):
     event_id = 'NewAccount'
 
     def process(self, db_session):
-        self.block.count_accounts_new += 1
 
-        account_id = self.event.attributes[0]['value'].replace('0x', '')
-        balance = self.event.attributes[1]['value']
+        # Check event requirements
+        if len(self.event.attributes) == 2 and \
+                self.event.attributes[0]['type'] == 'AccountId' and self.event.attributes[1]['type'] == 'Balance':
 
-        account = Account(
-            id=account_id,
-            address=ss58_encode(account_id),
-            balance_at_creation=balance,
-            created_at_block=self.event.block_id,
-            created_at_extrinsic=self.event.extrinsic_idx,
-            created_at_event=self.event.event_idx,
-        )
+            self.block.count_accounts_new += 1
 
-        account.save(db_session)
+            account_id = self.event.attributes[0]['value'].replace('0x', '')
+            balance = self.event.attributes[1]['value']
+
+            account = Account(
+                id=account_id,
+                address=ss58_encode(account_id),
+                balance_at_creation=balance,
+                created_at_block=self.event.block_id,
+                created_at_extrinsic=self.event.extrinsic_idx,
+                created_at_event=self.event.event_idx,
+            )
+
+            account.save(db_session)
 
 
 class NewAccountIndexEventProcessor(EventProcessor):
