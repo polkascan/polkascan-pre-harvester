@@ -21,7 +21,7 @@
 
 import dateutil.parser
 import pytz
-from app.services.base import ExtrinsicProcessor
+from app.processors.base import ExtrinsicProcessor
 
 
 class TimestampExtrinsicProcessor(ExtrinsicProcessor):

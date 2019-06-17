@@ -23,7 +23,7 @@ from scalecodec.base import ScaleBytes, ScaleDecoder
 from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61181Decoder
 
-from app.services.base import BaseService, ProcessorRegistry
+from app.processors.base import BaseService, ProcessorRegistry
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL

@@ -21,7 +21,7 @@
 from app.models.data import Log
 from scalecodec.base import ScaleBytes
 
-from app.services.base import BlockProcessor
+from app.processors.base import BlockProcessor
 from scalecodec.block import LogDigest
 
 

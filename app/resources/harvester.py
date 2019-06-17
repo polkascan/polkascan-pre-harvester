@@ -29,7 +29,7 @@ from sqlalchemy import text
 from app.models.data import Block
 from app.resources.base import BaseResource
 from app.schemas import load_schema
-from app.services.converters import PolkascanHarvesterService, BlockAlreadyAdded
+from app.processors.converters import PolkascanHarvesterService, BlockAlreadyAdded
 from substrateinterface import SubstrateInterface
 from app.tasks import process_block_recursive, start_harvester
 from app.settings import SUBSTRATE_RPC_URL

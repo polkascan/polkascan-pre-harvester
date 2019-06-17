@@ -29,7 +29,7 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.sql import func
 
 from app.models.data import Extrinsic, Block
-from app.services.converters import PolkascanHarvesterService, HarvesterCouldNotAddBlock, BlockAlreadyAdded
+from app.processors.converters import PolkascanHarvesterService, HarvesterCouldNotAddBlock, BlockAlreadyAdded
 from substrateinterface import SubstrateInterface
 
 from app.settings import DB_CONNECTION, DEBUG, SUBSTRATE_RPC_URL

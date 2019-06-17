@@ -19,7 +19,7 @@
 #  event.py
 #
 from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session
-from app.services.base import EventProcessor
+from app.processors.base import EventProcessor
 from app.utils.ss58 import ss58_encode
 
 
