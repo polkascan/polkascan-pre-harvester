@@ -28,7 +28,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.sql import func
 
-from app.models.data import Extrinsic, Block
+from app.models.data import Extrinsic, Block, BlockTotal
 from app.processors.converters import PolkascanHarvesterService, HarvesterCouldNotAddBlock, BlockAlreadyAdded
 from substrateinterface import SubstrateInterface
 
@@ -70,7 +70,7 @@ class BaseTask(celery.Task):
 
 
 @app.task(base=BaseTask, bind=True)
-def process_block_recursive(self, block_hash, end_block_hash=None):
+def accumulate_block_recursive(self, block_hash, end_block_hash=None):
 
     harvester = PolkascanHarvesterService(self.session)
     harvester.metadata_store = self.metadata_store
@@ -109,9 +109,28 @@ def process_block_recursive(self, block_hash, end_block_hash=None):
     self.metadata_store = harvester.metadata_store
 
     if block_hash != end_block_hash and block and block.id > 0:
-        process_block_recursive.delay(block.parent_hash, end_block_hash)
+        accumulate_block_recursive.delay(block.parent_hash, end_block_hash)
+        max_sequenced_block_id = False
+    else:
+        # Start sequencer
+        max_sequenced_block_id = self.session.query(func.max(BlockTotal.id)).one()[0]
+        if max_sequenced_block_id is not None:
+            sequencer_parent_block = BlockTotal.query(self.session).filter_by(id=max_sequenced_block_id).first()
+            parent_block = Block.query(self.session).filter_by(id=max_sequenced_block_id).first()
 
-    return {'result': '{} blocks added'.format(add_count), 'lastAddedBlockHash': block_hash}
+            sequence_block_recursive.delay(
+                parent_block_data=parent_block.asdict(),
+                parent_sequenced_block_data=sequencer_parent_block.asdict()
+            )
+
+        else:
+            sequence_block_recursive.delay(parent_block_data=None)
+
+    return {
+        'result': '{} blocks added'.format(add_count),
+        'lastAddedBlockHash': block_hash,
+        'sequencerStartedFrom': max_sequenced_block_id
+    }
 
 
 @app.task(base=BaseTask, bind=True)
@@ -132,7 +151,7 @@ def start_harvester(self, check_gaps=False):
             start_block_hash = substrate.get_block_hash(int(block_set['block_to']))
 
             # Start processing task
-            process_block_recursive.delay(start_block_hash, end_block_hash)
+            accumulate_block_recursive.delay(start_block_hash, end_block_hash)
 
             block_sets.append({
                 'start_block_hash': start_block_hash,
@@ -144,7 +163,7 @@ def start_harvester(self, check_gaps=False):
     start_block_hash = substrate.get_chain_head()
     end_block_hash = None
 
-    process_block_recursive.delay(start_block_hash, end_block_hash)
+    accumulate_block_recursive.delay(start_block_hash, end_block_hash)
 
     block_sets.append({
         'start_block_hash': start_block_hash,
@@ -156,3 +175,26 @@ def start_harvester(self, check_gaps=False):
         'block_sets': block_sets
     }
 
+
+@app.task(base=BaseTask, bind=True)
+def sequence_block_recursive(self, parent_block_data, parent_sequenced_block_data=None):
+
+    harvester = PolkascanHarvesterService(self.session)
+    harvester.metadata_store = self.metadata_store
+
+    if not parent_sequenced_block_data:
+        block_id = 1
+    else:
+        block_id = parent_sequenced_block_data['id'] + 1
+
+    block = Block.query(self.session).get(block_id)
+
+    if block:
+
+        sequenced_block = harvester.sequence_block(block, parent_block_data, parent_sequenced_block_data)
+        self.session.commit()
+
+        if sequenced_block:
+            sequence_block_recursive.delay(block.asdict(), sequenced_block.asdict())
+
+    return {'processedBlockId': block_id}

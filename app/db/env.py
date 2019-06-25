@@ -24,6 +24,7 @@ fileConfig(config.config_file_name)
 
 from app.models.base import BaseModel
 from app.models.data import *
+from app.models.harvester import *
 
 target_metadata = BaseModel.metadata
 

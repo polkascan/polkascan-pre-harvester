@@ -28,7 +28,7 @@ from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
-    RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage
+    RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -355,10 +355,11 @@ class PolkascanHarvesterService(BaseService):
             parent_hash=parent_hash,
             state_root=state_root,
             extrinsics_root=extrinsics_root,
-            blocktime=0,
             count_extrinsics=0,
             count_events=0,
             count_accounts_new=0,
+            count_accounts_reaped=0,
+            count_accounts=0,
             count_events_extrinsic=0,
             count_events_finalization=0,
             count_events_module=0,
@@ -369,6 +370,9 @@ class PolkascanHarvesterService(BaseService):
             count_extrinsics_signedby_index=0,
             count_extrinsics_success=0,
             count_extrinsics_unsigned=0,
+            count_sessions_new=0,
+            count_contracts_new=0,
+            count_log=0,
             range10000=math.floor(block_id / 10000),
             range100000=math.floor(block_id / 100000),
             range1000000=math.floor(block_id / 1000000),
@@ -512,7 +516,7 @@ class PolkascanHarvesterService(BaseService):
             # Process extrinsic processors
             for processor_class in ProcessorRegistry().get_extrinsic_processors(model.module_id, model.call_id):
                 extrinsic_processor = processor_class(block, model)
-                extrinsic_processor.process(self.db_session)
+                extrinsic_processor.accumulation_hook(self.db_session)
 
         # Process event processors
         for event in events:
@@ -522,12 +526,12 @@ class PolkascanHarvesterService(BaseService):
 
             for processor_class in ProcessorRegistry().get_event_processors(event.module_id, event.event_id):
                 event_processor = processor_class(block, event, extrinsic)
-                event_processor.process(self.db_session)
+                event_processor.accumulation_hook(self.db_session)
 
         # Process block processors
         for processor_class in ProcessorRegistry().get_block_processors():
             block_processor = processor_class(block)
-            block_processor.process(self.db_session)
+            block_processor.accumulation_hook(self.db_session)
 
         # Debug info
         if DEBUG:
@@ -538,3 +542,51 @@ class PolkascanHarvesterService(BaseService):
         block.save(self.db_session)
 
         return block
+
+    def sequence_block(self, block, parent_block_data=None, parent_sequenced_block_data=None):
+
+        sequenced_block = BlockTotal(
+            id=block.id
+        )
+
+        if block:
+            # Process block processors
+            for processor_class in ProcessorRegistry().get_block_processors():
+                block_processor = processor_class(block, sequenced_block)
+                block_processor.sequencing_hook(
+                    self.db_session,
+                    parent_block_data,
+                    parent_sequenced_block_data
+                )
+
+            extrinsics = Extrinsic.query(self.db_session).filter_by(block_id=block.id)
+
+            for extrinsic in extrinsics:
+                # Process extrinsic processors
+                for processor_class in ProcessorRegistry().get_extrinsic_processors(extrinsic.module_id, extrinsic.call_id):
+                    extrinsic_processor = processor_class(block, extrinsic)
+                    extrinsic_processor.sequencing_hook(
+                        self.db_session,
+                        parent_block_data,
+                        parent_sequenced_block_data
+                    )
+
+            events = Event.query(self.db_session).filter_by(block_id=block.id).order_by('event_idx')
+
+            # Process event processors
+            for event in events:
+                extrinsic = None
+                if event.extrinsic_idx is not None:
+                    extrinsic = extrinsics[event.extrinsic_idx]
+
+                for processor_class in ProcessorRegistry().get_event_processors(event.module_id, event.event_id):
+                    event_processor = processor_class(block, event, extrinsic)
+                    event_processor.sequencing_hook(
+                        self.db_session,
+                        parent_block_data,
+                        parent_sequenced_block_data
+                    )
+
+        sequenced_block.save(self.db_session)
+
+        return sequenced_block

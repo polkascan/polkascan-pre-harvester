@@ -34,6 +34,14 @@ SUBSTRATE_RPC_URL = os.environ.get("SUBSTRATE_RPC_URL", "http://substrate-node:9
 
 DEBUG = bool(os.environ.get("DEBUG", False))
 
+
+ACCOUNT_AUDIT_TYPE_NEW = 1
+ACCOUNT_AUDIT_TYPE_REAPED = 2
+
+ACCOUNT_INDEX_AUDIT_TYPE_NEW = 1
+ACCOUNT_INDEX_AUDIT_TYPE_REAPED = 2
+
+
 try:
     from app.local_settings import *
 except ImportError:

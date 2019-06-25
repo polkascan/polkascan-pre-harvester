@@ -49,13 +49,16 @@ class Block(BaseModel):
     count_events_module = sa.Column(sa.Integer(), nullable=False)
     count_events_extrinsic = sa.Column(sa.Integer(), nullable=False)
     count_events_finalization = sa.Column(sa.Integer(), nullable=False)
+    count_accounts = sa.Column(sa.Integer(), nullable=False)
     count_accounts_new = sa.Column(sa.Integer(), nullable=False)
+    count_accounts_reaped = sa.Column(sa.Integer(), nullable=False)
+    count_sessions_new = sa.Column(sa.Integer(), nullable=False)
+    count_contracts_new = sa.Column(sa.Integer(), nullable=False)
+    count_log = sa.Column(sa.Integer(), nullable=False)
     range10000 = sa.Column(sa.Integer(), nullable=False)
     range100000 = sa.Column(sa.Integer(), nullable=False)
     range1000000 = sa.Column(sa.Integer(), nullable=False)
     datetime = sa.Column(sa.DateTime(timezone=True))
-    parent_datetime = sa.Column(sa.DateTime(timezone=True))
-    blocktime = sa.Column(sa.Integer(), nullable=False)
     year = sa.Column(sa.Integer(), nullable=True)
     month = sa.Column(sa.Integer(), nullable=True)
     week = sa.Column(sa.Integer(), nullable=True)
@@ -95,6 +98,34 @@ class Block(BaseModel):
                                             ORDER BY block_from DESC
                                             """)
                                )
+
+
+class BlockTotal(BaseModel):
+    __tablename__ = 'data_block_total'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    session_id = sa.Column(sa.Integer())
+    parent_datetime = sa.Column(sa.DateTime())
+    blocktime = sa.Column(sa.Integer(), nullable=False)
+    total_extrinsics = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_extrinsics_success = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_extrinsics_error = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_extrinsics_signed = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_extrinsics_unsigned = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_extrinsics_signedby_address = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_extrinsics_signedby_index = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_events = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_events_system = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_events_module = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_events_extrinsic = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_events_finalization = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_logs = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_blocktime = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_accounts = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_accounts_new = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_accounts_reaped = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_sessions_new = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_contracts_new = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
 
 
 class Event(BaseModel):
@@ -183,13 +214,26 @@ class Account(BaseModel):
 
     id = sa.Column(sa.String(64), primary_key=True)
     address = sa.Column(sa.String(48), index=True)
-    balance_at_creation = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
-    created_at_block = sa.Column(sa.Integer())
-    created_at_extrinsic = sa.Column(sa.Integer())
-    created_at_event = sa.Column(sa.Integer())
-    referenced_at_block = sa.Column(sa.Integer())
-    reaped_at_block = sa.Column(sa.Integer())
-    reaped = sa.Column(sa.Boolean, default=False)
+    is_reaped = sa.Column(sa.Boolean, default=False)
+    is_validator = sa.Column(sa.Boolean, default=False)
+    is_nominator = sa.Column(sa.Boolean, default=False)
+    is_contract = sa.Column(sa.Boolean, default=False)
+    count_reaped = sa.Column(sa.Integer(), default=0)
+    balance = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
+
+
+class AccountAudit(BaseModel):
+    __tablename__ = 'data_account_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    account_id = sa.Column(sa.String(64), primary_key=True)
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    type_id = sa.Column(sa.Integer(), nullable=False)
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
 
 
 class Session(BaseModel):
@@ -212,14 +256,25 @@ class AccountIndex(BaseModel):
     __tablename__ = 'data_account_index'
 
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
-    account = sa.Column(sa.String(64), index=True)
-    account_at_creation = sa.Column(sa.String(64))
-    created_at_block = sa.Column(sa.Integer())
-    created_at_extrinsic = sa.Column(sa.Integer())
-    created_at_event = sa.Column(sa.Integer())
-    referenced_at_block = sa.Column(sa.Integer())
-    reaped_at_block = sa.Column(sa.Integer())
-    reaped = sa.Column(sa.Boolean, default=False)
+    short_address = sa.Column(sa.String(24), index=True)
+    account_id = sa.Column(sa.String(64), index=True)
+    is_reclaimable = sa.Column(sa.Boolean, default=False)
+    is_reclaimed = sa.Column(sa.Boolean, default=False)
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
+
+
+class AccountIndexAudit(BaseModel):
+    __tablename__ = 'data_account_index_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    account_index_id = sa.Column(sa.Integer(), nullable=True, index=True)
+    account_id = sa.Column(sa.String(64), index=True)
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    type_id = sa.Column(sa.Integer(), nullable=False)
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
 
 
 class DemocracyProposal(BaseModel):

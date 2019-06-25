@@ -26,12 +26,12 @@ from celery.result import AsyncResult
 from falcon.media.validators.jsonschema import validate
 from sqlalchemy import text
 
-from app.models.data import Block
+from app.models.data import Block, BlockTotal
 from app.resources.base import BaseResource
 from app.schemas import load_schema
 from app.processors.converters import PolkascanHarvesterService, BlockAlreadyAdded
 from substrateinterface import SubstrateInterface
-from app.tasks import process_block_recursive, start_harvester
+from app.tasks import accumulate_block_recursive, start_harvester
 from app.settings import SUBSTRATE_RPC_URL
 
 class PolkascanStartHarvesterResource(BaseResource):
@@ -151,6 +151,53 @@ class PolkascanProcessBlockResource(BaseResource):
         else:
             resp.status = falcon.HTTP_404
             resp.media = {'result': 'Block not found'}
+
+
+class SequenceBlockResource(BaseResource):
+
+    def on_post(self, req, resp):
+
+        block_hash = None
+
+        if req.media.get('block_id'):
+            block = Block.query(self.session).filter(Block.id == req.media.get('block_id')).first()
+        elif req.media.get('block_hash'):
+            block_hash = req.media.get('block_hash')
+            block = Block.query(self.session).filter(Block.hash == block_hash).first()
+        else:
+            block = None
+            resp.status = falcon.HTTP_BAD_REQUEST
+            resp.media = {'errors': ['Either block_hash or block_id should be supplied']}
+
+        if block:
+            print('Sequencing #{} ...'.format(block.id))
+            harvester = PolkascanHarvesterService(self.session)
+
+            block_total = BlockTotal.query(self.session).filter_by(id=block.id).first()
+            parent_block = Block.query(self.session).filter(Block.id == block.id - 1).first()
+            parent_block_total = BlockTotal.query(self.session).filter_by(id=block.id - 1).first()
+
+            if block_total:
+                resp.status = falcon.HTTP_200
+                resp.media = {'result': 'already exists', 'blockId': block.id}
+            else:
+
+                if not parent_block_total:
+                    resp.status = falcon.HTTP_200
+                    resp.media = {'result': 'parent total does not exist', 'blockId': block.id - 1}
+                else:
+
+                    harvester.sequence_block(block, parent_block.asdict(), parent_block_total.asdict())
+
+                    self.session.commit()
+
+                    resp.status = falcon.HTTP_201
+                    resp.media = {'result': 'added', 'parentHash': block.parent_hash}
+
+        else:
+            resp.status = falcon.HTTP_404
+            resp.media = {'result': 'Block not found'}
+
 
 
 class PolkascanResetHarvesterResource(BaseResource):

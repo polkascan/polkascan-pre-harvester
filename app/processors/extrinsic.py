@@ -29,7 +29,7 @@ class TimestampExtrinsicProcessor(ExtrinsicProcessor):
     module_id = 'timestamp'
     call_id = 'set'
 
-    def process(self, db_session):
+    def accumulation_hook(self, db_session):
         # Store block date time related fields
         for param in self.extrinsic.params:
             if param.get('name') == 'now':

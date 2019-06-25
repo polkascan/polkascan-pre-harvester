@@ -73,8 +73,47 @@ class ProcessorRegistry(metaclass=Singleton):
 
 class Processor(object):
 
-    def process(self, db_session):
-        raise NotImplemented()
+    def initialization_hook(self, db_session):
+        """
+        Hook during initialization phase, which will be a one-time call during processing of the genesis block
+        :param db_session:
+        :type db_session: sqlalchemy.orm.Session
+        :return:
+        """
+        pass
+
+    def accumulation_hook(self, db_session):
+        """
+        Hook during accumulation phase, which means processing on an isolated block level; no context outside the
+        current block is available
+        :param db_session:
+        :type db_session: sqlalchemy.orm.Session
+        :return:
+        """
+        pass
+
+    def sequencing_hook(self, db_session, parent_block, parent_sequenced_block):
+        """
+        Hook during sequencing phase, which means processing block for block from genesis to chaintip where this order
+        of processing is crucial
+        :param parent_block:
+        :param parent_sequenced_block:
+        :type parent_sequenced_block: BlockTotal
+        :param db_session:
+        :type db_session: sqlalchemy.orm.Session
+        :return:
+        """
+        pass
+
+    def aggregation_hook(self, db_session):
+        """
+        Hook during aggregation phase, which will be a periodic call on several pre-defined timeframes in order to
+        write aggregated data over this timeframe
+        :param db_session:
+        :type db_session: sqlalchemy.orm.Session
+        :return:
+        """
+        pass
 
 
 class EventProcessor(Processor):
@@ -100,5 +139,6 @@ class ExtrinsicProcessor(Processor):
 
 class BlockProcessor(Processor):
 
-    def __init__(self, block):
+    def __init__(self, block, sequenced_block=None):
         self.block = block
+        self.sequenced_block = sequenced_block
