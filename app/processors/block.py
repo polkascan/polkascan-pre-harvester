@@ -23,9 +23,10 @@ import datetime
 import dateutil
 from sqlalchemy.orm.exc import NoResultFound
 
-from app.models.data import Log, AccountAudit, Account, AccountIndexAudit, AccountIndex
+from app.models.data import Log, AccountAudit, Account, AccountIndexAudit, AccountIndex, DemocracyProposalAudit, \
+    DemocracyProposal
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
-    ACCOUNT_INDEX_AUDIT_TYPE_REAPED
+    ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED
 from app.utils.ss58 import ss58_encode
 from scalecodec.base import ScaleBytes
 
@@ -61,11 +62,13 @@ class BlockTotalProcessor(BlockProcessor):
         if not parent_sequenced_block_data:
             parent_sequenced_block_data = {}
 
-        if parent_block_data:
+        if parent_block_data and parent_block_data['datetime']:
             self.sequenced_block.parent_datetime = parent_block_data['datetime']
 
-            self.sequenced_block.blocktime = (self.block.datetime - dateutil.parser.parse(parent_block_data['datetime'])).total_seconds()
-            #self.sequenced_block.blocktime = (self.block.datetime - parent_block_data['datetime']).total_seconds()
+            if type(parent_block_data['datetime']) is str:
+                self.sequenced_block.blocktime = (self.block.datetime - dateutil.parser.parse(parent_block_data['datetime'])).total_seconds()
+            else:
+                self.sequenced_block.blocktime = (self.block.datetime - parent_block_data['datetime']).total_seconds()
         else:
             self.sequenced_block.blocktime = 0
 
@@ -90,8 +93,19 @@ class BlockTotalProcessor(BlockProcessor):
         self.sequenced_block.total_sessions_new = int(parent_sequenced_block_data.get('total_sessions_new', 0)) + self.block.count_sessions_new
         self.sequenced_block.total_contracts_new = int(parent_sequenced_block_data.get('total_contracts_new', 0)) + self.block.count_contracts_new
 
+        self.sequenced_block.session_id = int(parent_sequenced_block_data.get('session_id', 0))
+
+        if parent_block_data and parent_block_data['count_sessions_new'] > 0:
+            self.sequenced_block.session_id += 1
+
 
 class AccountBlockProcessor(BlockProcessor):
+
+    def accumulation_hook(self, db_session):
+        self.block.count_accounts_new += len(set(self.block._accounts_new))
+        self.block.count_accounts_reaped += len(set(self.block._accounts_reaped))
+
+        self.block.count_accounts = self.block.count_accounts_new - self.block.count_accounts_reaped
 
     def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
 
@@ -103,18 +117,12 @@ class AccountBlockProcessor(BlockProcessor):
                     account.count_reaped += 1
                     account.is_reaped = True
 
-                elif account_audit.type_id != ACCOUNT_AUDIT_TYPE_NEW:
+                elif account_audit.type_id == ACCOUNT_AUDIT_TYPE_NEW:
                     account.is_reaped = False
 
                 account.updated_at_block = self.block.id
 
             except NoResultFound:
-
-                # Sanity check on type
-                if account_audit.type_id != ACCOUNT_AUDIT_TYPE_NEW:
-                    raise ValueError(
-                        "Account is in invalid state: does not exists and has type {}".format(account_audit.type_id)
-                    )
 
                 account = Account(
                     id=account_audit.account_id,
@@ -124,37 +132,72 @@ class AccountBlockProcessor(BlockProcessor):
                     balance=0
                 )
 
+                # If reaped but does not exist, create new account for now
+                if account_audit.type_id != ACCOUNT_AUDIT_TYPE_NEW:
+                    account.is_reaped = True
+                    account.count_reaped = 1
+
             account.save(db_session)
+
+
+class DemocracyProposalBlockProcessor(BlockProcessor):
+
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+
+        for proposal_audit in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id).order_by('event_idx'):
+
+            if proposal_audit.type_id == DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED:
+                status = 'Proposed'
+            elif proposal_audit.type_id == DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED:
+                status = 'Tabled'
+            else:
+                status = '[unknown]'
+
+            try:
+                proposal = DemocracyProposal.query(db_session).filter_by(id=proposal_audit.democracy_proposal_id).one()
+
+                proposal.status = status
+                proposal.updated_at_block = self.block.id
+
+            except NoResultFound:
+
+                proposal = DemocracyProposal(
+                    id=proposal_audit.democracy_proposal_id,
+                    proposal=proposal_audit.data['proposal'],
+                    bond=proposal_audit.data['bond'],
+                    created_at_block=self.block.id,
+                    updated_at_block=self.block.id,
+                    status=status
+                )
+
+            proposal.save(db_session)
 
 
 class AccountIndexBlockProcessor(BlockProcessor):
 
     def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
 
-        for account_index_audit in AccountIndexAudit.query(db_session).filter_by(block_id=self.block.id).order_by('event_idx'):
-            try:
-                account_index = AccountIndex.query(db_session).filter_by(id=account_index_audit.account_index_id).one()
+        for account_index_audit in AccountIndexAudit.query(db_session).filter_by(
+                block_id=self.block.id
+        ).order_by('event_idx'):
 
-                if account_index_audit.type_id == ACCOUNT_INDEX_AUDIT_TYPE_REAPED:
-                    account_index.account_id = None
-
-                account_index.updated_at_block = self.block.id
-
-            except NoResultFound:
-
-                # Sanity check on type
-                if account_index_audit.type_id != ACCOUNT_INDEX_AUDIT_TYPE_NEW:
-                    raise ValueError(
-                        "Account Index is in invalid state: does not exists and has type {}".format(
-                            account_index_audit.type_id
-                        )
-                    )
-
+            if account_index_audit.type_id == ACCOUNT_INDEX_AUDIT_TYPE_NEW:
                 account_index = AccountIndex(
                     id=account_index_audit.account_index_id,
                     account_id=account_index_audit.account_id,
+                    short_address=None,  # TODO FIX ss58_encode
                     created_at_block=self.block.id,
                     updated_at_block=self.block.id
                 )
 
-            account_index.save(db_session)
+                account_index.save(db_session)
+
+            elif account_index_audit.type_id == ACCOUNT_INDEX_AUDIT_TYPE_REAPED:
+
+                for account_index in AccountIndex.query(db_session).filter_by(
+                        account_id=account_index_audit.account_id
+                ):
+
+                    account_index.account_id = None
+                    account_index.is_reclaimable = True
+                    account_index.updated_at_block = self.block.id

@@ -159,7 +159,7 @@ class SequenceBlockResource(BaseResource):
 
         block_hash = None
 
-        if req.media.get('block_id'):
+        if 'block_id' in req.media:
             block = Block.query(self.session).filter(Block.id == req.media.get('block_id')).first()
         elif req.media.get('block_hash'):
             block_hash = req.media.get('block_hash')
@@ -182,22 +182,22 @@ class SequenceBlockResource(BaseResource):
                 resp.media = {'result': 'already exists', 'blockId': block.id}
             else:
 
-                if not parent_block_total:
-                    resp.status = falcon.HTTP_200
-                    resp.media = {'result': 'parent total does not exist', 'blockId': block.id - 1}
-                else:
+                if parent_block_total:
+                    parent_block_total = parent_block_total.asdict()
 
-                    harvester.sequence_block(block, parent_block.asdict(), parent_block_total.asdict())
+                if parent_block:
+                    parent_block = parent_block.asdict()
 
-                    self.session.commit()
+                harvester.sequence_block(block, parent_block, parent_block_total)
 
-                    resp.status = falcon.HTTP_201
-                    resp.media = {'result': 'added', 'parentHash': block.parent_hash}
+                self.session.commit()
+
+                resp.status = falcon.HTTP_201
+                resp.media = {'result': 'added', 'parentHash': block.parent_hash}
 
         else:
             resp.status = falcon.HTTP_404
             resp.media = {'result': 'Block not found'}
-
 
 
 class PolkascanResetHarvesterResource(BaseResource):

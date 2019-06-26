@@ -380,6 +380,10 @@ class PolkascanHarvesterService(BaseService):
             logs=digest_logs
         )
 
+        # Set temp helper variables
+        block._accounts_new = []
+        block._accounts_reaped = []
+
         # ==== Get block events from Substrate ==================
         extrinsic_success_idx = {}
         events = []

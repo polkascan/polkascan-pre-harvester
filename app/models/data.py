@@ -241,15 +241,21 @@ class Session(BaseModel):
 
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
     start_at_block = sa.Column(sa.Integer())
-    end_at_block = sa.Column(sa.Integer())
     era = sa.Column(sa.Integer())
     era_idx = sa.Column(sa.Integer())
     created_at_block = sa.Column(sa.Integer(), nullable=False)
     created_at_extrinsic = sa.Column(sa.Integer())
     created_at_event = sa.Column(sa.Integer())
-    count_blocks = sa.Column(sa.Integer())
     count_validators = sa.Column(sa.Integer())
     count_nominators = sa.Column(sa.Integer())
+
+
+class SessionTotal(BaseModel):
+    __tablename__ = 'data_session_total'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    end_at_block = sa.Column(sa.Integer())
+    count_blocks = sa.Column(sa.Integer())
 
 
 class AccountIndex(BaseModel):
@@ -269,7 +275,7 @@ class AccountIndexAudit(BaseModel):
 
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
     account_index_id = sa.Column(sa.Integer(), nullable=True, index=True)
-    account_id = sa.Column(sa.String(64), index=True)
+    account_id = sa.Column(sa.String(64), index=True, nullable=False)
     block_id = sa.Column(sa.Integer(), index=True, nullable=False)
     extrinsic_idx = sa.Column(sa.Integer())
     event_idx = sa.Column(sa.Integer())
@@ -284,9 +290,20 @@ class DemocracyProposal(BaseModel):
     proposal = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
     bond = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
     created_at_block = sa.Column(sa.Integer(), nullable=False)
-    created_at_extrinsic = sa.Column(sa.Integer())
-    created_at_event = sa.Column(sa.Integer())
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
     status = sa.Column(sa.String(64))
+
+
+class DemocracyProposalAudit(BaseModel):
+    __tablename__ = 'data_democracy_proposal_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    democracy_proposal_id = sa.Column(sa.Integer(), nullable=False, index=True)
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    type_id = sa.Column(sa.Integer(), nullable=False)
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
 
 
 class Contract(BaseModel):

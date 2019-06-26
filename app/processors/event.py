@@ -18,10 +18,11 @@
 #
 #  event.py
 #
-from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session, AccountAudit, AccountIndexAudit
+from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session, AccountAudit, \
+    AccountIndexAudit, DemocracyProposalAudit, SessionTotal
 from app.processors.base import EventProcessor
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
-    ACCOUNT_INDEX_AUDIT_TYPE_REAPED
+    ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED
 from app.utils.ss58 import ss58_encode
 
 
@@ -33,8 +34,11 @@ class NewSessionEventProcessor(EventProcessor):
     def accumulation_hook(self, db_session):
         self.block.count_sessions_new += 1
 
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+        session_id = self.event.attributes[0]['value']
+
         session = Session(
-            id=self.event.attributes[0]['value'],
+            id=session_id,
             start_at_block=self.event.block_id + 1,
             created_at_block=self.event.block_id,
             created_at_extrinsic=self.event.extrinsic_idx,
@@ -42,6 +46,22 @@ class NewSessionEventProcessor(EventProcessor):
         )
 
         session.save(db_session)
+
+        # Retrieve previous session to calculate count_blocks
+        prev_session = Session.query(db_session).filter_by(id=session_id - 1).first()
+
+        if prev_session:
+            count_blocks = self.event.block_id - prev_session.start_at_block + 1
+        else:
+            count_blocks = self.event.block_id
+
+        session_total = SessionTotal(
+            id=session_id - 1,
+            end_at_block=self.event.block_id,
+            count_blocks=count_blocks
+        )
+
+        session_total.save(db_session)
 
 
 class NewAccountEventProcessor(EventProcessor):
@@ -55,11 +75,10 @@ class NewAccountEventProcessor(EventProcessor):
         if len(self.event.attributes) == 2 and \
                 self.event.attributes[0]['type'] == 'AccountId' and self.event.attributes[1]['type'] == 'Balance':
 
-            self.block.count_accounts_new += 1
-            self.block.count_accounts += 1
-
             account_id = self.event.attributes[0]['value'].replace('0x', '')
             balance = self.event.attributes[1]['value']
+
+            self.block._accounts_new.append(account_id)
 
             account_audit = AccountAudit(
                 account_id=account_id,
@@ -81,10 +100,9 @@ class ReapedAccount(EventProcessor):
         if len(self.event.attributes) == 1 and \
                 self.event.attributes[0]['type'] == 'AccountId':
 
-            self.block.count_accounts_reaped += 1
-            self.block.count_accounts -= 1
-
             account_id = self.event.attributes[0]['value'].replace('0x', '')
+
+            self.block._accounts_reaped.append(account_id)
 
             account_audit = AccountAudit(
                 account_id=account_id,
@@ -96,18 +114,18 @@ class ReapedAccount(EventProcessor):
 
             account_audit.save(db_session)
 
-            # Check if index is present for reaped account
-            for account_index_audit in AccountIndexAudit.query(db_session).filter_by(account_id=account_id):
-                new_account_index_audit = AccountIndexAudit(
-                    account_index_id=account_index_audit.account_index_id,
-                    account_id=account_id,
-                    block_id=self.event.block_id,
-                    extrinsic_idx=self.event.extrinsic_idx,
-                    event_idx=self.event.event_idx,
-                    type_id=ACCOUNT_INDEX_AUDIT_TYPE_REAPED
-                )
+            # Insert account index audit record
 
-                new_account_index_audit.save(db_session)
+            new_account_index_audit = AccountIndexAudit(
+                account_index_id=None,
+                account_id=account_id,
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=ACCOUNT_INDEX_AUDIT_TYPE_REAPED
+            )
+
+            new_account_index_audit.save(db_session)
 
 
 class NewAccountIndexEventProcessor(EventProcessor):
@@ -139,22 +157,50 @@ class ProposedEventProcessor(EventProcessor):
 
     def accumulation_hook(self, db_session):
 
-        proposal = DemocracyProposal(
-            id=self.event.attributes[0]['value'],
-            bond=self.event.attributes[1]['value'],
-            created_at_block=self.event.block_id,
-            created_at_extrinsic=self.event.extrinsic_idx,
-            created_at_event=self.event.event_idx,
-        )
+        # Check event requirements
+        if len(self.event.attributes) == 2 and \
+                self.event.attributes[0]['type'] == 'PropIndex' and self.event.attributes[1]['type'] == 'Balance':
 
-        for param in self.extrinsic.params:
-            if param.get('name') == 'proposal':
-                proposal.proposal = param.get('value')
+            proposal_audit = DemocracyProposalAudit(
+                democracy_proposal_id=self.event.attributes[0]['value'],
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED
+            )
 
-        proposal.save(db_session)
+            proposal_audit.data = {'bond': self.event.attributes[1]['value'], 'proposal': None}
 
-    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
-        pass
+            for param in self.extrinsic.params:
+                if param.get('name') == 'proposal':
+                    proposal_audit.data['proposal'] = param.get('value')
+
+            proposal_audit.save(db_session)
+
+
+class DemocracyTabledEventProcessor(EventProcessor):
+
+    module_id = 'democracy'
+    event_id = 'Tabled'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 3 and self.event.attributes[0]['type'] == 'PropIndex' \
+                and self.event.attributes[1]['type'] == 'Balance' and \
+                self.event.attributes[2]['type'] == 'Vec<AccountId>':
+
+            proposal_audit = DemocracyProposalAudit(
+                democracy_proposal_id=self.event.attributes[0]['value'],
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED
+            )
+
+            proposal_audit.data = self.event.attributes
+
+            proposal_audit.save(db_session)
 
 
 class CodeStoredEventProcessor(EventProcessor):
