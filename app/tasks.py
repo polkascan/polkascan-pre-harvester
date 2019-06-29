@@ -76,55 +76,55 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
     harvester.metadata_store = self.metadata_store
 
     block = None
+    max_sequenced_block_id = False
 
     add_count = 0
 
-    for nr in range(0, 10):
-        if not block or block.id > 0:
-            try:
+    try:
+
+        for nr in range(0, 10):
+            if not block or block.id > 0:
                 # Process block
                 block = harvester.add_block(block_hash)
-            except BlockAlreadyAdded as e:
-                # Break process loop
-                end_block_hash = block_hash
-                break
-            except Exception as exc:
-                print('! ERROR adding {}'.format(block_hash))
-                raise HarvesterCouldNotAddBlock(block_hash) from exc
 
-            print('+ Added {} '.format(block_hash))
+                print('+ Added {} '.format(block_hash))
 
-            add_count += 1
+                add_count += 1
 
-            self.session.commit()
+                self.session.commit()
 
-            # Break loop if targeted end block hash is reached
-            if block_hash == end_block_hash or block.id == 0:
-                break
+                # Break loop if targeted end block hash is reached
+                if block_hash == end_block_hash or block.id == 0:
+                    break
 
-            # Continue with parent block hash
-            block_hash = block.parent_hash
+                # Continue with parent block hash
+                block_hash = block.parent_hash
 
-    # Update persistent metadata store in Celery task
-    self.metadata_store = harvester.metadata_store
+        # Update persistent metadata store in Celery task
+        self.metadata_store = harvester.metadata_store
 
-    if block_hash != end_block_hash and block and block.id > 0:
-        accumulate_block_recursive.delay(block.parent_hash, end_block_hash)
-        max_sequenced_block_id = False
-    else:
-        # Start sequencer
-        max_sequenced_block_id = self.session.query(func.max(BlockTotal.id)).one()[0]
-        if max_sequenced_block_id is not None:
-            sequencer_parent_block = BlockTotal.query(self.session).filter_by(id=max_sequenced_block_id).first()
-            parent_block = Block.query(self.session).filter_by(id=max_sequenced_block_id).first()
-
-            sequence_block_recursive.delay(
-                parent_block_data=parent_block.asdict(),
-                parent_sequenced_block_data=sequencer_parent_block.asdict()
-            )
-
+        if block_hash != end_block_hash and block and block.id > 0:
+            accumulate_block_recursive.delay(block.parent_hash, end_block_hash)
         else:
-            sequence_block_recursive.delay(parent_block_data=None)
+            # Start sequencer
+            max_sequenced_block_id = self.session.query(func.max(BlockTotal.id)).one()[0]
+            if max_sequenced_block_id is not None:
+                sequencer_parent_block = BlockTotal.query(self.session).filter_by(id=max_sequenced_block_id).first()
+                parent_block = Block.query(self.session).filter_by(id=max_sequenced_block_id).first()
+
+                sequence_block_recursive.delay(
+                    parent_block_data=parent_block.asdict(),
+                    parent_sequenced_block_data=sequencer_parent_block.asdict()
+                )
+
+            else:
+                sequence_block_recursive.delay(parent_block_data=None)
+
+    except BlockAlreadyAdded as e:
+        print('. Skipped {} '.format(block_hash))
+    except Exception as exc:
+        print('! ERROR adding {}'.format(block_hash))
+        raise HarvesterCouldNotAddBlock(block_hash) from exc
 
     return {
         'result': '{} blocks added'.format(add_count),

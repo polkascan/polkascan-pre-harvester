@@ -29,6 +29,8 @@ from app.models.base import BaseModel
 class Block(BaseModel):
     __tablename__ = 'data_block'
 
+    serialize_exclude = ['debug_info']
+
     serialize_type = 'block'
 
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
@@ -258,6 +260,23 @@ class SessionTotal(BaseModel):
     count_blocks = sa.Column(sa.Integer())
 
 
+class SessionValidator(BaseModel):
+    __tablename__ = 'data_session_validator'
+
+    session_id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    validator = sa.Column(sa.String(64), index=True, primary_key=True)
+    rank_validator = sa.Column(sa.Integer(), nullable=True)
+    count_nominators = sa.Column(sa.Integer(), nullable=True)
+
+
+class SessionNominator(BaseModel):
+    __tablename__ = 'data_session_nominator'
+
+    session_id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    validator = sa.Column(sa.String(64), index=True, primary_key=True)
+    nominator = sa.Column(sa.String(64), index=True, primary_key=True)
+
+
 class AccountIndex(BaseModel):
     __tablename__ = 'data_account_index'
 
@@ -322,6 +341,8 @@ class Contract(BaseModel):
 class Runtime(BaseModel):
     __tablename__ = 'runtime'
 
+    serialize_exclude = ['json_metadata', 'json_metadata_decoded']
+
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
     impl_name = sa.Column(sa.String(255))
     impl_version = sa.Column(sa.Integer())
@@ -335,6 +356,9 @@ class Runtime(BaseModel):
     count_call_functions = sa.Column(sa.Integer(), default=0, nullable=False)
     count_storage_functions = sa.Column(sa.Integer(), default=0, nullable=False)
     count_events = sa.Column(sa.Integer(), default=0, nullable=False)
+
+    def serialize_id(self):
+        return self.spec_version
 
 
 class RuntimeModule(BaseModel):
@@ -354,6 +378,9 @@ class RuntimeModule(BaseModel):
     count_storage_functions = sa.Column(sa.Integer(), nullable=False)
     count_events = sa.Column(sa.Integer(), nullable=False)
 
+    def serialize_id(self):
+        return '{}-{}'.format(self.spec_version, self.module_id)
+
 
 class RuntimeCall(BaseModel):
     __tablename__ = 'runtime_call'
@@ -370,6 +397,9 @@ class RuntimeCall(BaseModel):
     lookup = sa.Column(sa.String(4), index=True)
     documentation = sa.Column(sa.Text())
     count_params = sa.Column(sa.Integer(), nullable=False)
+
+    def serialize_id(self):
+        return '{}-{}-{}'.format(self.spec_version, self.module_id, self.call_id)
 
 
 class RuntimeCallParam(BaseModel):
@@ -397,6 +427,9 @@ class RuntimeEvent(BaseModel):
     lookup = sa.Column(sa.String(4), index=True)
     documentation = sa.Column(sa.Text())
     count_attributes = sa.Column(sa.Integer(), nullable=False)
+
+    def serialize_id(self):
+        return '{}-{}-{}'.format(self.spec_version, self.module_id, self.event_id)
 
 
 class RuntimeEventAttribute(BaseModel):
@@ -428,6 +461,9 @@ class RuntimeStorage(BaseModel):
     type_is_linked = sa.Column(sa.SmallInteger())
     type_key2hasher = sa.Column(sa.String(255))
     documentation = sa.Column(sa.Text())
+
+    def serialize_id(self):
+        return '{}-{}-{}'.format(self.spec_version, self.module_id, self.name)
 
 
 class RuntimeType(BaseModel):
