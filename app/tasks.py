@@ -164,6 +164,9 @@ def start_harvester(self, check_gaps=False):
                 'end_block_hash': end_block_hash
             })
 
+        # Start sequencer
+        start_sequencer.delay()
+
     # Continue from current finalised head
 
     start_block_hash = substrate.get_chain_head()
