@@ -24,7 +24,7 @@ from time import sleep
 import celery
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.sql import func
 
@@ -106,22 +106,11 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
         if block_hash != end_block_hash and block and block.id > 0:
             accumulate_block_recursive.delay(block.parent_hash, end_block_hash)
         else:
-            # Start sequencer
-            max_sequenced_block_id = self.session.query(func.max(BlockTotal.id)).one()[0]
-            if max_sequenced_block_id is not None:
-                sequencer_parent_block = BlockTotal.query(self.session).filter_by(id=max_sequenced_block_id).first()
-                parent_block = Block.query(self.session).filter_by(id=max_sequenced_block_id).first()
-
-                sequence_block_recursive.delay(
-                    parent_block_data=parent_block.asdict(),
-                    parent_sequenced_block_data=sequencer_parent_block.asdict()
-                )
-
-            else:
-                sequence_block_recursive.delay(parent_block_data=None)
+            start_sequencer.delay()
 
     except BlockAlreadyAdded as e:
         print('. Skipped {} '.format(block_hash))
+        start_sequencer.delay()
     except Exception as exc:
         print('! ERROR adding {}'.format(block_hash))
         raise HarvesterCouldNotAddBlock(block_hash) from exc
@@ -131,6 +120,23 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
         'lastAddedBlockHash': block_hash,
         'sequencerStartedFrom': max_sequenced_block_id
     }
+
+
+@app.task(base=BaseTask, bind=True)
+def start_sequencer(self):
+    # Start sequencer
+    max_sequenced_block_id = self.session.query(func.max(BlockTotal.id)).one()[0]
+    if max_sequenced_block_id is not None:
+        sequencer_parent_block = BlockTotal.query(self.session).filter_by(id=max_sequenced_block_id).first()
+        parent_block = Block.query(self.session).filter_by(id=max_sequenced_block_id).first()
+
+        sequence_block_recursive.delay(
+            parent_block_data=parent_block.asdict(),
+            parent_sequenced_block_data=sequencer_parent_block.asdict()
+        )
+
+    else:
+        sequence_block_recursive.delay(parent_block_data=None)
 
 
 @app.task(base=BaseTask, bind=True)
@@ -190,11 +196,15 @@ def sequence_block_recursive(self, parent_block_data, parent_sequenced_block_dat
     block = Block.query(self.session).get(block_id)
 
     if block:
+        try:
+            sequenced_block = harvester.sequence_block(block, parent_block_data, parent_sequenced_block_data)
+            self.session.commit()
 
-        sequenced_block = harvester.sequence_block(block, parent_block_data, parent_sequenced_block_data)
-        self.session.commit()
+            if sequenced_block:
+                sequence_block_recursive.delay(block.asdict(), sequenced_block.asdict())
 
-        if sequenced_block:
-            sequence_block_recursive.delay(block.asdict(), sequenced_block.asdict())
-
-    return {'processedBlockId': block_id}
+            return {'processedBlockId': block_id}
+        except IntegrityError as e:
+            return {'error': 'Sequencer already started'}
+    else:
+        return {'error': 'Block {} not found'.format(block_id)}
