@@ -19,11 +19,15 @@
 #  event.py
 #
 from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session, AccountAudit, \
-    AccountIndexAudit, DemocracyProposalAudit, SessionTotal
+    AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator
 from app.processors.base import EventProcessor
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
-    ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED
+    ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
+    SUBSTRATE_RPC_URL
 from app.utils.ss58 import ss58_encode
+from scalecodec import ScaleBytes
+from scalecodec.base import ScaleDecoder
+from substrateinterface import SubstrateInterface
 
 
 class NewSessionEventProcessor(EventProcessor):
@@ -46,6 +50,25 @@ class NewSessionEventProcessor(EventProcessor):
         )
 
         session.save(db_session)
+
+        # Retrieve validator for new session from storage
+
+        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+
+        storage_bytes = substrate.get_storage(self.block.hash,
+                                              "Session", "Validators")
+
+        obj = ScaleDecoder.get_decoder_class('Vec<AccountId>', ScaleBytes(storage_bytes))
+
+        validators = obj.decode()
+
+        for validator in validators:
+            session_validator = SessionValidator(
+                session_id=session_id,
+                validator=validator.replace('0x', '')
+            )
+
+            session_validator.save(db_session)
 
         # Retrieve previous session to calculate count_blocks
         prev_session = Session.query(db_session).filter_by(id=session_id - 1).first()
