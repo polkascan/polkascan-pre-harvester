@@ -41,34 +41,45 @@ class NewSessionEventProcessor(EventProcessor):
     def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
         session_id = self.event.attributes[0]['value']
 
+        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+
+        # Retrieve current era
+        current_era = substrate.get_storage(
+            block_hash=self.block.hash,
+            module="Staking",
+            function="CurrentEra",
+            return_scale_type='BlockNumber'
+        )
+
+        # Retrieve validator for new session from storage
+        validators = substrate.get_storage(
+            block_hash=self.block.hash,
+            module="Session",
+            function="Validators",
+            return_scale_type='Vec<AccountId>'
+        ) or []
+
+        for rank_nr, validator in enumerate(validators):
+            session_validator = SessionValidator(
+                session_id=session_id,
+                validator=validator.replace('0x', ''),
+                rank_validator=rank_nr
+            )
+
+            session_validator.save(db_session)
+
+        # Store session
         session = Session(
             id=session_id,
             start_at_block=self.event.block_id + 1,
             created_at_block=self.event.block_id,
             created_at_extrinsic=self.event.extrinsic_idx,
             created_at_event=self.event.event_idx,
+            count_validators=len(validators),
+            era=current_era
         )
 
         session.save(db_session)
-
-        # Retrieve validator for new session from storage
-
-        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
-
-        storage_bytes = substrate.get_storage(self.block.hash,
-                                              "Session", "Validators")
-
-        obj = ScaleDecoder.get_decoder_class('Vec<AccountId>', ScaleBytes(storage_bytes))
-
-        validators = obj.decode()
-
-        for validator in validators:
-            session_validator = SessionValidator(
-                session_id=session_id,
-                validator=validator.replace('0x', '')
-            )
-
-            session_validator.save(db_session)
 
         # Retrieve previous session to calculate count_blocks
         prev_session = Session.query(db_session).filter_by(id=session_id - 1).first()
