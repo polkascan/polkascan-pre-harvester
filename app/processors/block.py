@@ -24,9 +24,12 @@ import dateutil
 from sqlalchemy.orm.exc import NoResultFound
 
 from app.models.data import Log, AccountAudit, Account, AccountIndexAudit, AccountIndex, DemocracyProposalAudit, \
-    DemocracyProposal
+    DemocracyProposal, DemocracyReferendumAudit, DemocracyReferendum
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
-    ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED
+    ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
+    DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED, \
+    DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
+    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED
 from app.utils.ss58 import ss58_encode
 from scalecodec.base import ScaleBytes
 
@@ -171,6 +174,52 @@ class DemocracyProposalBlockProcessor(BlockProcessor):
                 )
 
             proposal.save(db_session)
+
+
+class DemocracyReferendumBlockProcessor(BlockProcessor):
+
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+
+        # TODO force insert on Started status
+        for referendum_audit in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id).order_by('event_idx'):
+
+            success = None
+            vote_threshold = None
+
+            if referendum_audit.type_id == DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED:
+                status = 'Started'
+                vote_threshold = referendum_audit.data.get('vote_threshold')
+            elif referendum_audit.type_id == DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED:
+                status = 'Passed'
+            elif referendum_audit.type_id == DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED:
+                status = 'NotPassed'
+            elif referendum_audit.type_id == DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED:
+                status = 'Cancelled'
+            elif referendum_audit.type_id == DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED:
+                status = 'Executed'
+                success = referendum_audit.data.get('success')
+            else:
+                status = '[unknown]'
+
+            try:
+                referendum = DemocracyReferendum.query(db_session).filter_by(id=referendum_audit.democracy_referendum_id).one()
+
+                referendum.status = status
+                referendum.updated_at_block = self.block.id
+                referendum.success = success
+
+            except NoResultFound:
+
+                referendum = DemocracyReferendum(
+                    id=referendum_audit.democracy_referendum_id,
+                    vote_threshold=vote_threshold,
+                    created_at_block=self.block.id,
+                    updated_at_block=self.block.id,
+                    success=success,
+                    status=status
+                )
+
+            referendum.save(db_session)
 
 
 class AccountIndexBlockProcessor(BlockProcessor):

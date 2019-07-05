@@ -19,11 +19,13 @@
 #  event.py
 #
 from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session, AccountAudit, \
-    AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator
+    AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator, DemocracyReferendumAudit
 from app.processors.base import EventProcessor
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
-    SUBSTRATE_RPC_URL
+    SUBSTRATE_RPC_URL, DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED, \
+    DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
+    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED
 from app.utils.ss58 import ss58_encode
 from scalecodec import ScaleBytes
 from scalecodec.base import ScaleDecoder
@@ -235,6 +237,120 @@ class DemocracyTabledEventProcessor(EventProcessor):
             proposal_audit.data = self.event.attributes
 
             proposal_audit.save(db_session)
+
+
+class DemocracyStartedProcessor(EventProcessor):
+
+    module_id = 'democracy'
+    event_id = 'Started'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 2 and \
+                self.event.attributes[0]['type'] == 'ReferendumIndex' and \
+                self.event.attributes[1]['type'] == 'VoteThreshold':
+
+            referendum_audit = DemocracyReferendumAudit(
+                democracy_referendum_id=self.event.attributes[0]['value'],
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED,
+                data={'vote_threshold': self.event.attributes[1]['value']}
+            )
+
+            referendum_audit.save(db_session)
+
+
+class DemocracyPassedProcessor(EventProcessor):
+
+    module_id = 'democracy'
+    event_id = 'Passed'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 1 and \
+                self.event.attributes[0]['type'] == 'ReferendumIndex':
+
+            referendum_audit = DemocracyReferendumAudit(
+                democracy_referendum_id=self.event.attributes[0]['value'],
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED
+            )
+
+            referendum_audit.save(db_session)
+
+
+class DemocracyNotPassedProcessor(EventProcessor):
+
+    module_id = 'democracy'
+    event_id = 'NotPassed'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 1 and \
+                self.event.attributes[0]['type'] == 'ReferendumIndex':
+
+            referendum_audit = DemocracyReferendumAudit(
+                democracy_referendum_id=self.event.attributes[0]['value'],
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED
+            )
+
+            referendum_audit.save(db_session)
+
+
+class DemocracyCancelledProcessor(EventProcessor):
+
+    module_id = 'democracy'
+    event_id = 'Cancelled'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 1 and \
+                self.event.attributes[0]['type'] == 'ReferendumIndex':
+
+            referendum_audit = DemocracyReferendumAudit(
+                democracy_referendum_id=self.event.attributes[0]['value'],
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED
+            )
+
+            referendum_audit.save(db_session)
+
+
+class DemocracyExecutedProcessor(EventProcessor):
+
+    module_id = 'democracy'
+    event_id = 'Executed'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 2 and \
+                self.event.attributes[0]['type'] == 'ReferendumIndex' and \
+                self.event.attributes[1]['type'] == 'bool':
+
+            referendum_audit = DemocracyReferendumAudit(
+                democracy_referendum_id=self.event.attributes[0]['value'],
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED,
+                data={'success': self.event.attributes[1]['value']}
+            )
+
+            referendum_audit.save(db_session)
 
 
 class CodeStoredEventProcessor(EventProcessor):

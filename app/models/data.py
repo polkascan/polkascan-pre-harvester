@@ -109,6 +109,7 @@ class BlockTotal(BaseModel):
     session_id = sa.Column(sa.Integer())
     parent_datetime = sa.Column(sa.DateTime())
     blocktime = sa.Column(sa.Integer(), nullable=False)
+    author = sa.Column(sa.String(64), nullable=True)
     total_extrinsics = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
     total_extrinsics_success = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
     total_extrinsics_error = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
@@ -318,6 +319,31 @@ class DemocracyProposalAudit(BaseModel):
 
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
     democracy_proposal_id = sa.Column(sa.Integer(), nullable=False, index=True)
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    type_id = sa.Column(sa.Integer(), nullable=False)
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+
+
+class DemocracyReferendum(BaseModel):
+    __tablename__ = 'data_democracy_referendum'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    proposal_id = sa.Column(sa.Integer(), nullable=True)
+    proposal = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+    vote_threshold = sa.Column(sa.String(64))
+    success = sa.Column(sa.Boolean(), nullable=True)
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
+    status = sa.Column(sa.String(64))
+
+
+class DemocracyReferendumAudit(BaseModel):
+    __tablename__ = 'data_democracy_referendum_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    democracy_referendum_id = sa.Column(sa.Integer(), nullable=False, index=True)
     block_id = sa.Column(sa.Integer(), index=True, nullable=False)
     extrinsic_idx = sa.Column(sa.Integer())
     event_idx = sa.Column(sa.Integer())
