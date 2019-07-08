@@ -25,6 +25,9 @@
 import base58
 from hashlib import blake2b
 
+from scalecodec import ScaleBytes
+from scalecodec.types import U8, U16, U32, U64
+
 
 def ss58_decode(address, valid_address_type=42):
     checksum_prefix = b'SS58PRE'
@@ -35,17 +38,31 @@ def ss58_decode(address, valid_address_type=42):
         raise ValueError("Invalid Address type")
 
     # Public keys has a two byte checksum, account index 1 byte
-    if len(ss58_format) == 35:
-        checksum_length = 2
-    else:
+    if len(ss58_format) in [3, 4, 6, 10]:
         checksum_length = 1
+    elif len(ss58_format) in [5, 7, 11, 35]:
+        checksum_length = 2
+    elif len(ss58_format) in [8, 12]:
+        checksum_length = 3
+    elif len(ss58_format) in [9, 13]:
+        checksum_length = 4
+    elif len(ss58_format) in [14]:
+        checksum_length = 5
+    elif len(ss58_format) in [15]:
+        checksum_length = 6
+    elif len(ss58_format) in [16]:
+        checksum_length = 7
+    elif len(ss58_format) in [17]:
+        checksum_length = 8
+    else:
+        raise ValueError("Invalid address length")
 
     checksum = blake2b(checksum_prefix + ss58_format[0:-checksum_length]).digest()
 
     if checksum[0:checksum_length] != ss58_format[-checksum_length:]:
         raise ValueError("Invalid checksum")
 
-    return ss58_format[1:33].hex()
+    return ss58_format[1:len(ss58_format)-checksum_length].hex()
 
 
 def ss58_encode(address, address_type=42):
@@ -71,6 +88,34 @@ def ss58_encode(address, address_type=42):
     return base58.b58encode(address_format + checksum[:checksum_length]).decode()
 
 
-#print(ss58_decode('5D68ZpzRB3SGBBGgv4iaRfwR7K8XPpuD99g7Rja9cD9TiNHe'))
+def ss58_encode_account_index(account_index, address_type=42):
 
-#print(ss58_encode('2d52a8b05d209a6fecdc3d80941cf0a571353d4203b0858c44b5e27b0eeee3c4'))
+    if 0 <= account_index <= 2**8 - 1:
+        account_idx_encoder = U8()
+    elif 2**8 <= account_index <= 2**16 - 1:
+        account_idx_encoder = U16()
+    elif 2**16 <= account_index <= 2**32 - 1:
+        account_idx_encoder = U32()
+    elif 2**32 <= account_index <= 2**64 - 1:
+        account_idx_encoder = U64()
+    else:
+        raise ValueError("Value too large for an account index")
+
+    return ss58_encode(account_idx_encoder.encode(account_index).data, address_type)
+
+
+def ss58_decode_account_index(address, valid_address_type=42):
+
+    account_index_bytes = ss58_decode(address, valid_address_type)
+
+    if len(account_index_bytes) == 2:
+        return U8(ScaleBytes('0x{}'.format(account_index_bytes))).decode()
+    if len(account_index_bytes) == 4:
+        return U16(ScaleBytes('0x{}'.format(account_index_bytes))).decode()
+    if len(account_index_bytes) == 8:
+        return U32(ScaleBytes('0x{}'.format(account_index_bytes))).decode()
+    if len(account_index_bytes) == 16:
+        return U64(ScaleBytes('0x{}'.format(account_index_bytes))).decode()
+    else:
+        raise ValueError("Invalid account index length")
+
