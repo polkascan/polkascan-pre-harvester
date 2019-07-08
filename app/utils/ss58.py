@@ -51,7 +51,10 @@ def ss58_decode(address, valid_address_type=42):
 def ss58_encode(address, address_type=42):
     checksum_prefix = b'SS58PRE'
 
-    address_bytes = bytes.fromhex(address)
+    if type(address) is bytes or type(address) is bytearray:
+        address_bytes = address
+    else:
+        address_bytes = bytes.fromhex(address)
     
     if len(address_bytes) == 32:
         # Checksum size is 2 bytes for public key

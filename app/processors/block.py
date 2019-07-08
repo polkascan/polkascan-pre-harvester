@@ -31,6 +31,7 @@ from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCO
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED
 from app.utils.ss58 import ss58_encode
+from scalecodec import U32
 from scalecodec.base import ScaleBytes
 
 from app.processors.base import BlockProcessor
@@ -231,10 +232,15 @@ class AccountIndexBlockProcessor(BlockProcessor):
         ).order_by('event_idx'):
 
             if account_index_audit.type_id == ACCOUNT_INDEX_AUDIT_TYPE_NEW:
+
+                # Generate SS58 address
+                account_idx_u32 = U32()
+                short_address = ss58_encode(account_idx_u32.encode(account_index_audit.account_index_id).data)
+
                 account_index = AccountIndex(
                     id=account_index_audit.account_index_id,
                     account_id=account_index_audit.account_id,
-                    short_address=None,  # TODO FIX ss58_encode
+                    short_address=short_address,
                     created_at_block=self.block.id,
                     updated_at_block=self.block.id
                 )
