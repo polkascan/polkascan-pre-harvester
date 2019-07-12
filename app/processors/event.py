@@ -19,7 +19,7 @@
 #  event.py
 #
 from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session, AccountAudit, \
-    AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator, DemocracyReferendumAudit
+    AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator, DemocracyReferendumAudit, RuntimeStorage
 from app.processors.base import EventProcessor
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
@@ -46,19 +46,34 @@ class NewSessionEventProcessor(EventProcessor):
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
 
         # Retrieve current era
+        storage_call = RuntimeStorage.query(db_session).filter_by(
+            module_id='staking',
+            name='CurrentEra',
+            spec_version=self.block.spec_version_id
+        ).one()
+
         current_era = substrate.get_storage(
             block_hash=self.block.hash,
             module="Staking",
             function="CurrentEra",
-            return_scale_type='BlockNumber'
+            return_scale_type=storage_call.type_value,
+            hasher=storage_call.type_hasher
         )
 
-        # Retrieve validator for new session from storage
+        # Retrieve validators for new session from storage
+
+        storage_call = RuntimeStorage.query(db_session).filter_by(
+            module_id='session',
+            name='Validators',
+            spec_version=self.block.spec_version_id
+        ).one()
+
         validators = substrate.get_storage(
             block_hash=self.block.hash,
             module="Session",
             function="Validators",
-            return_scale_type='Vec<AccountId>'
+            return_scale_type=storage_call.type_value,
+            hasher=storage_call.type_hasher
         ) or []
 
         for rank_nr, validator in enumerate(validators):
