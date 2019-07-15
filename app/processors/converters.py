@@ -184,9 +184,19 @@ class PolkascanHarvesterService(BaseService):
 
                 else:
                     for module in metadata_decoder.metadata.modules:
+
+                        # Check if module exists
+                        if RuntimeModule.query(self.db_session).filter_by(
+                            spec_version=spec_version,
+                            module_id=module.get_identifier()
+                        ).count() == 0:
+                            module_id = module.get_identifier()
+                        else:
+                            module_id = '{}_1'.format(module.get_identifier())
+
                         runtime_module = RuntimeModule(
                             spec_version=spec_version,
-                            module_id=module.get_identifier(),
+                            module_id=module_id,
                             prefix=module.prefix,
                             name=module.name,
                             count_call_functions=len(module.calls or []),
@@ -204,7 +214,7 @@ class PolkascanHarvesterService(BaseService):
                             for idx, call in enumerate(module.calls):
                                 runtime_call = RuntimeCall(
                                     spec_version=spec_version,
-                                    module_id=module.get_identifier(),
+                                    module_id=module_id,
                                     call_id=call.get_identifier(),
                                     index=idx,
                                     name=call.name,
@@ -229,7 +239,7 @@ class PolkascanHarvesterService(BaseService):
                             for event_index, event in enumerate(module.events):
                                 runtime_event = RuntimeEvent(
                                     spec_version=spec_version,
-                                    module_id=module.get_identifier(),
+                                    module_id=module_id,
                                     event_id=event.name,
                                     index=event_index,
                                     name=event.name,
@@ -276,7 +286,7 @@ class PolkascanHarvesterService(BaseService):
 
                                 runtime_storage = RuntimeStorage(
                                     spec_version=spec_version,
-                                    module_id=module.get_identifier(),
+                                    module_id=module_id,
                                     index=idx,
                                     name=storage.name,
                                     lookup=None,
