@@ -28,7 +28,7 @@ from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
-    RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal
+    RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -311,6 +311,33 @@ class PolkascanHarvesterService(BaseService):
 
                                 if type_key2:
                                     self.process_metadata_type(type_key2, spec_version)
+
+                        if len(module.constants or []) > 0:
+                            for idx, constant in enumerate(module.constants):
+
+                                # Decode value
+                                try:
+                                    value_obj = ScaleDecoder.get_decoder_class(
+                                        constant.type,
+                                        ScaleBytes("0x{}".format(constant.constant_value))
+                                    )
+                                    value = value_obj.decode()
+                                except ValueError:
+                                    value = constant.constant_value
+
+                                runtime_constant = RuntimeConstant(
+                                    spec_version=spec_version,
+                                    module_id=module_id,
+                                    index=idx,
+                                    name=constant.name,
+                                    type=constant.type,
+                                    value=value,
+                                    documentation='\n'.join(constant.docs)
+                                )
+                                runtime_constant.save(self.db_session)
+
+                                # Check if types already registered in database
+                                self.process_metadata_type(constant.type, spec_version)
 
                     runtime.save(self.db_session)
 
