@@ -205,8 +205,8 @@ class Extrinsic(BaseModel):
 class Log(BaseModel):
     __tablename__ = 'data_log'
 
-    block_id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
-    log_idx = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    block_id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False, index=True)
+    log_idx = sa.Column(sa.Integer(), primary_key=True, autoincrement=False, index=True)
     type_id = sa.Column(sa.Integer())
     type = sa.Column(sa.String(64))
     data = sa.Column(sa.JSON())
