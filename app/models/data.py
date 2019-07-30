@@ -265,8 +265,15 @@ class SessionValidator(BaseModel):
     __tablename__ = 'data_session_validator'
 
     session_id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
-    validator = sa.Column(sa.String(64), index=True, primary_key=True)
-    rank_validator = sa.Column(sa.Integer(), nullable=True)
+    rank_validator = sa.Column(sa.Integer(), primary_key=True, autoincrement=False, index=True)
+    validator_stash = sa.Column(sa.String(64), index=True)
+    validator_controller = sa.Column(sa.String(64), index=True)
+    validator_session = sa.Column(sa.String(64), index=True)
+    bonded_total = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    bonded_active = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    bonded_nominators = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    bonded_own = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    unlocking = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
     count_nominators = sa.Column(sa.Integer(), nullable=True)
 
 
@@ -274,8 +281,11 @@ class SessionNominator(BaseModel):
     __tablename__ = 'data_session_nominator'
 
     session_id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
-    validator = sa.Column(sa.String(64), index=True, primary_key=True)
-    nominator = sa.Column(sa.String(64), index=True, primary_key=True)
+    rank_validator = sa.Column(sa.Integer(), primary_key=True, autoincrement=False, index=True)
+    rank_nominator = sa.Column(sa.Integer(), primary_key=True, autoincrement=False, index=True)
+    nominator_stash = sa.Column(sa.String(64), index=True)
+    nominator_controller = sa.Column(sa.String(64), index=True, nullable=True)
+    bonded = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
 
 
 class AccountIndex(BaseModel):

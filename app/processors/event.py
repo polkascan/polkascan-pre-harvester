@@ -19,7 +19,8 @@
 #  event.py
 #
 from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session, AccountAudit, \
-    AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator, DemocracyReferendumAudit, RuntimeStorage
+    AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator, DemocracyReferendumAudit, RuntimeStorage, \
+    SessionNominator
 from app.processors.base import EventProcessor
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
@@ -76,14 +77,85 @@ class NewSessionEventProcessor(EventProcessor):
             hasher=storage_call.type_hasher
         ) or []
 
-        for rank_nr, validator in enumerate(validators):
+        for rank_nr, validator_controller in enumerate(validators):
+            validator_controller = validator_controller.replace('0x', '')
+
+            # Retrieve stash account
+            storage_call = RuntimeStorage.query(db_session).filter_by(
+                module_id='staking',
+                name='Ledger',
+                spec_version=self.block.spec_version_id
+            ).one()
+
+            validator_ledger = substrate.get_storage(
+                block_hash=self.block.hash,
+                module="Staking",
+                function="Ledger",
+                params=validator_controller,
+                return_scale_type=storage_call.type_value,
+                hasher=storage_call.type_hasher
+            )
+            print(rank_nr, validator_ledger)
+
+            # Retrieve session account
+            storage_call = RuntimeStorage.query(db_session).filter_by(
+                module_id='session',
+                name='NextKeyFor',
+                spec_version=self.block.spec_version_id
+            ).one()
+
+            validator_session = substrate.get_storage(
+                block_hash=self.block.hash,
+                module="Session",
+                function="NextKeyFor",
+                params=validator_controller,
+                return_scale_type=storage_call.type_value,
+                hasher=storage_call.type_hasher
+            )
+
+            # Retrieve nominators
+            storage_call = RuntimeStorage.query(db_session).filter_by(
+                module_id='staking',
+                name='Stakers',
+                spec_version=self.block.spec_version_id
+            ).one()
+
+            exposure = substrate.get_storage(
+                block_hash=self.block.hash,
+                module="Staking",
+                function="Stakers",
+                params=validator_ledger['stash'].replace('0x', ''),
+                return_scale_type=storage_call.type_value,
+                hasher=storage_call.type_hasher
+            ) or {}
+
             session_validator = SessionValidator(
                 session_id=session_id,
-                validator=validator.replace('0x', ''),
-                rank_validator=rank_nr
+                validator_controller=validator_controller,
+                validator_stash=validator_ledger['stash'].replace('0x', ''),
+                bonded_total=exposure['total'],
+                bonded_active=validator_ledger['active'],
+                bonded_own=exposure['own'],
+                bonded_nominators=exposure['total'] - exposure['own'],
+                validator_session=validator_session.replace('0x', ''),
+                rank_validator=rank_nr,
+                unlocking=validator_ledger['unlocking']
             )
 
             session_validator.save(db_session)
+
+            # Store nominators
+
+            for rank_nominator, nominator_info in enumerate(exposure['others']):
+                session_nominator = SessionNominator(
+                    session_id=session_id,
+                    rank_validator=rank_nr,
+                    rank_nominator=rank_nominator,
+                    nominator_stash=nominator_info['who'].replace('0x', ''),
+                    bonded=nominator_info['value'],
+                )
+
+                session_nominator.save(db_session)
 
         # Store session
         session = Session(
