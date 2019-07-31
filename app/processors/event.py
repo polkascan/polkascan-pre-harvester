@@ -57,7 +57,7 @@ class NewSessionEventProcessor(EventProcessor):
             block_hash=self.block.hash,
             module="Staking",
             function="CurrentEra",
-            return_scale_type=storage_call.type_value,
+            return_scale_type=storage_call.get_return_type(),
             hasher=storage_call.type_hasher
         )
 
@@ -73,7 +73,7 @@ class NewSessionEventProcessor(EventProcessor):
             block_hash=self.block.hash,
             module="Session",
             function="Validators",
-            return_scale_type=storage_call.type_value,
+            return_scale_type=storage_call.get_return_type(),
             hasher=storage_call.type_hasher
         ) or []
 
@@ -92,10 +92,25 @@ class NewSessionEventProcessor(EventProcessor):
                 module="Staking",
                 function="Ledger",
                 params=validator_controller,
-                return_scale_type=storage_call.type_value,
+                return_scale_type=storage_call.get_return_type(),
                 hasher=storage_call.type_hasher
             )
-            print(rank_nr, validator_ledger)
+
+            # Retrieve validator preferences for stash account
+            storage_call = RuntimeStorage.query(db_session).filter_by(
+                module_id='staking',
+                name='Validators',
+                spec_version=self.block.spec_version_id
+            ).one()
+
+            validator_prefs = substrate.get_storage(
+                block_hash=self.block.hash,
+                module="Staking",
+                function="Validators",
+                params=validator_ledger['stash'].replace('0x', ''),
+                return_scale_type=storage_call.get_return_type(),
+                hasher=storage_call.type_hasher
+            )
 
             # Retrieve session account
             storage_call = RuntimeStorage.query(db_session).filter_by(
@@ -109,7 +124,7 @@ class NewSessionEventProcessor(EventProcessor):
                 module="Session",
                 function="NextKeyFor",
                 params=validator_controller,
-                return_scale_type=storage_call.type_value,
+                return_scale_type=storage_call.get_return_type(),
                 hasher=storage_call.type_hasher
             )
 
@@ -125,7 +140,7 @@ class NewSessionEventProcessor(EventProcessor):
                 module="Staking",
                 function="Stakers",
                 params=validator_ledger['stash'].replace('0x', ''),
-                return_scale_type=storage_call.type_value,
+                return_scale_type=storage_call.get_return_type(),
                 hasher=storage_call.type_hasher
             ) or {}
 
@@ -139,7 +154,10 @@ class NewSessionEventProcessor(EventProcessor):
                 bonded_nominators=exposure['total'] - exposure['own'],
                 validator_session=validator_session.replace('0x', ''),
                 rank_validator=rank_nr,
-                unlocking=validator_ledger['unlocking']
+                unlocking=validator_ledger['unlocking'],
+                count_nominators=len(exposure['others']),
+                unstake_threshold=validator_prefs['col1']['unstakeThreshold'],
+                commission=validator_prefs['col1']['validatorPayment']
             )
 
             session_validator.save(db_session)

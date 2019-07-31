@@ -275,6 +275,8 @@ class SessionValidator(BaseModel):
     bonded_own = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
     unlocking = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
     count_nominators = sa.Column(sa.Integer(), nullable=True)
+    unstake_threshold = sa.Column(sa.Integer(), nullable=True)
+    commission = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True)
 
 
 class SessionNominator(BaseModel):
@@ -497,6 +499,12 @@ class RuntimeStorage(BaseModel):
     type_is_linked = sa.Column(sa.SmallInteger())
     type_key2hasher = sa.Column(sa.String(255))
     documentation = sa.Column(sa.Text())
+
+    def get_return_type(self):
+        if self.type_is_linked:
+            return '({}, Linkage<AccountId>)'.format(self.type_value)
+        else:
+            return self.type_value
 
     def serialize_id(self):
         return '{}-{}-{}'.format(self.spec_version, self.module_id, self.name)
