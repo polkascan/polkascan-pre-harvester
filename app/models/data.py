@@ -269,10 +269,10 @@ class SessionValidator(BaseModel):
     validator_stash = sa.Column(sa.String(64), index=True)
     validator_controller = sa.Column(sa.String(64), index=True)
     validator_session = sa.Column(sa.String(64), index=True)
-    bonded_total = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
-    bonded_active = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
-    bonded_nominators = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
-    bonded_own = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    bonded_total = sa.Column(sa.Numeric(precision=65, scale=0))
+    bonded_active = sa.Column(sa.Numeric(precision=65, scale=0))
+    bonded_nominators = sa.Column(sa.Numeric(precision=65, scale=0))
+    bonded_own = sa.Column(sa.Numeric(precision=65, scale=0))
     unlocking = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
     count_nominators = sa.Column(sa.Integer(), nullable=True)
     unstake_threshold = sa.Column(sa.Integer(), nullable=True)
@@ -287,7 +287,7 @@ class SessionNominator(BaseModel):
     rank_nominator = sa.Column(sa.Integer(), primary_key=True, autoincrement=False, index=True)
     nominator_stash = sa.Column(sa.String(64), index=True)
     nominator_controller = sa.Column(sa.String(64), index=True, nullable=True)
-    bonded = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    bonded = sa.Column(sa.Numeric(precision=65, scale=0))
 
 
 class AccountIndex(BaseModel):

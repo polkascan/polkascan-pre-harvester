@@ -105,8 +105,6 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
 
         if block_hash != end_block_hash and block and block.id > 0:
             accumulate_block_recursive.delay(block.parent_hash, end_block_hash)
-        else:
-            start_sequencer.delay()
 
     except BlockAlreadyAdded as e:
         print('. Skipped {} '.format(block_hash))

@@ -43,6 +43,8 @@ class NewSessionEventProcessor(EventProcessor):
 
     def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
         session_id = self.event.attributes[0]['value']
+        current_era = None
+        validators = []
 
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
 
@@ -51,15 +53,17 @@ class NewSessionEventProcessor(EventProcessor):
             module_id='staking',
             name='CurrentEra',
             spec_version=self.block.spec_version_id
-        ).one()
+        ).first()
 
-        current_era = substrate.get_storage(
-            block_hash=self.block.hash,
-            module="Staking",
-            function="CurrentEra",
-            return_scale_type=storage_call.get_return_type(),
-            hasher=storage_call.type_hasher
-        )
+        if storage_call:
+
+            current_era = substrate.get_storage(
+                block_hash=self.block.hash,
+                module="Staking",
+                function="CurrentEra",
+                return_scale_type=storage_call.get_return_type(),
+                hasher=storage_call.type_hasher
+            )
 
         # Retrieve validators for new session from storage
 
@@ -67,110 +71,129 @@ class NewSessionEventProcessor(EventProcessor):
             module_id='session',
             name='Validators',
             spec_version=self.block.spec_version_id
-        ).one()
+        ).first()
 
-        validators = substrate.get_storage(
-            block_hash=self.block.hash,
-            module="Session",
-            function="Validators",
-            return_scale_type=storage_call.get_return_type(),
-            hasher=storage_call.type_hasher
-        ) or []
+        if storage_call:
+
+            validators = substrate.get_storage(
+                block_hash=self.block.hash,
+                module="Session",
+                function="Validators",
+                return_scale_type=storage_call.get_return_type(),
+                hasher=storage_call.type_hasher
+            ) or []
 
         for rank_nr, validator_controller in enumerate(validators):
             validator_controller = validator_controller.replace('0x', '')
+
+            validator_ledger = {}
+            validator_prefs = {}
+            validator_session = ''
+            exposure = {}
 
             # Retrieve stash account
             storage_call = RuntimeStorage.query(db_session).filter_by(
                 module_id='staking',
                 name='Ledger',
                 spec_version=self.block.spec_version_id
-            ).one()
+            ).first()
 
-            validator_ledger = substrate.get_storage(
-                block_hash=self.block.hash,
-                module="Staking",
-                function="Ledger",
-                params=validator_controller,
-                return_scale_type=storage_call.get_return_type(),
-                hasher=storage_call.type_hasher
-            )
+            if storage_call:
+
+                validator_ledger = substrate.get_storage(
+                    block_hash=self.block.hash,
+                    module="Staking",
+                    function="Ledger",
+                    params=validator_controller,
+                    return_scale_type=storage_call.get_return_type(),
+                    hasher=storage_call.type_hasher
+                ) or {}
 
             # Retrieve validator preferences for stash account
             storage_call = RuntimeStorage.query(db_session).filter_by(
                 module_id='staking',
                 name='Validators',
                 spec_version=self.block.spec_version_id
-            ).one()
+            ).first()
 
-            validator_prefs = substrate.get_storage(
-                block_hash=self.block.hash,
-                module="Staking",
-                function="Validators",
-                params=validator_ledger['stash'].replace('0x', ''),
-                return_scale_type=storage_call.get_return_type(),
-                hasher=storage_call.type_hasher
-            )
+            if storage_call:
+
+                validator_prefs = substrate.get_storage(
+                    block_hash=self.block.hash,
+                    module="Staking",
+                    function="Validators",
+                    params=validator_ledger.get('stash', '').replace('0x', ''),
+                    return_scale_type=storage_call.get_return_type(),
+                    hasher=storage_call.type_hasher
+                ) or {'col1': {}, 'col2': {}}
 
             # Retrieve session account
             storage_call = RuntimeStorage.query(db_session).filter_by(
                 module_id='session',
                 name='NextKeyFor',
                 spec_version=self.block.spec_version_id
-            ).one()
+            ).first()
 
-            validator_session = substrate.get_storage(
-                block_hash=self.block.hash,
-                module="Session",
-                function="NextKeyFor",
-                params=validator_controller,
-                return_scale_type=storage_call.get_return_type(),
-                hasher=storage_call.type_hasher
-            )
+            if storage_call:
+                validator_session = substrate.get_storage(
+                    block_hash=self.block.hash,
+                    module="Session",
+                    function="NextKeyFor",
+                    params=validator_controller,
+                    return_scale_type=storage_call.get_return_type(),
+                    hasher=storage_call.type_hasher
+                ) or ''
 
             # Retrieve nominators
             storage_call = RuntimeStorage.query(db_session).filter_by(
                 module_id='staking',
                 name='Stakers',
                 spec_version=self.block.spec_version_id
-            ).one()
+            ).first()
 
-            exposure = substrate.get_storage(
-                block_hash=self.block.hash,
-                module="Staking",
-                function="Stakers",
-                params=validator_ledger['stash'].replace('0x', ''),
-                return_scale_type=storage_call.get_return_type(),
-                hasher=storage_call.type_hasher
-            ) or {}
+            if storage_call:
+
+                exposure = substrate.get_storage(
+                    block_hash=self.block.hash,
+                    module="Staking",
+                    function="Stakers",
+                    params=validator_ledger.get('stash', '').replace('0x', ''),
+                    return_scale_type=storage_call.get_return_type(),
+                    hasher=storage_call.type_hasher
+                ) or {}
+
+            if exposure.get('total'):
+                bonded_nominators = exposure.get('total') - exposure.get('own')
+            else:
+                bonded_nominators = None
 
             session_validator = SessionValidator(
                 session_id=session_id,
                 validator_controller=validator_controller,
-                validator_stash=validator_ledger['stash'].replace('0x', ''),
-                bonded_total=exposure['total'],
-                bonded_active=validator_ledger['active'],
-                bonded_own=exposure['own'],
-                bonded_nominators=exposure['total'] - exposure['own'],
+                validator_stash=validator_ledger.get('stash', '').replace('0x', ''),
+                bonded_total=exposure.get('total'),
+                bonded_active=validator_ledger.get('active'),
+                bonded_own=exposure.get('own'),
+                bonded_nominators=bonded_nominators,
                 validator_session=validator_session.replace('0x', ''),
                 rank_validator=rank_nr,
-                unlocking=validator_ledger['unlocking'],
-                count_nominators=len(exposure['others']),
-                unstake_threshold=validator_prefs['col1']['unstakeThreshold'],
-                commission=validator_prefs['col1']['validatorPayment']
+                unlocking=validator_ledger.get('unlocking'),
+                count_nominators=len(exposure.get('others', [])),
+                unstake_threshold=validator_prefs.get('col1', {}).get('unstakeThreshold'),
+                commission=validator_prefs.get('col1', {}).get('validatorPayment')
             )
 
             session_validator.save(db_session)
 
             # Store nominators
 
-            for rank_nominator, nominator_info in enumerate(exposure['others']):
+            for rank_nominator, nominator_info in enumerate(exposure.get('others', [])):
                 session_nominator = SessionNominator(
                     session_id=session_id,
                     rank_validator=rank_nr,
                     rank_nominator=rank_nominator,
-                    nominator_stash=nominator_info['who'].replace('0x', ''),
-                    bonded=nominator_info['value'],
+                    nominator_stash=nominator_info.get('who').replace('0x', ''),
+                    bonded=nominator_info.get('value'),
                 )
 
                 session_nominator.save(db_session)
