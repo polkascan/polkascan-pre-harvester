@@ -30,6 +30,7 @@ from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCO
 from app.utils.ss58 import ss58_encode
 from scalecodec import ScaleBytes
 from scalecodec.base import ScaleDecoder
+from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
 from substrateinterface import SubstrateInterface
 
 
@@ -56,14 +57,16 @@ class NewSessionEventProcessor(EventProcessor):
         ).first()
 
         if storage_call:
-
-            current_era = substrate.get_storage(
-                block_hash=self.block.hash,
-                module="Staking",
-                function="CurrentEra",
-                return_scale_type=storage_call.get_return_type(),
-                hasher=storage_call.type_hasher
-            )
+            try:
+                current_era = substrate.get_storage(
+                    block_hash=self.block.hash,
+                    module="Staking",
+                    function="CurrentEra",
+                    return_scale_type=storage_call.get_return_type(),
+                    hasher=storage_call.type_hasher
+                )
+            except RemainingScaleBytesNotEmptyException:
+                pass
 
         # Retrieve validators for new session from storage
 
@@ -74,14 +77,16 @@ class NewSessionEventProcessor(EventProcessor):
         ).first()
 
         if storage_call:
-
-            validators = substrate.get_storage(
-                block_hash=self.block.hash,
-                module="Session",
-                function="Validators",
-                return_scale_type=storage_call.get_return_type(),
-                hasher=storage_call.type_hasher
-            ) or []
+            try:
+                validators = substrate.get_storage(
+                    block_hash=self.block.hash,
+                    module="Session",
+                    function="Validators",
+                    return_scale_type=storage_call.get_return_type(),
+                    hasher=storage_call.type_hasher
+                ) or []
+            except RemainingScaleBytesNotEmptyException:
+                pass
 
         for rank_nr, validator_controller in enumerate(validators):
             validator_controller = validator_controller.replace('0x', '')
@@ -99,15 +104,17 @@ class NewSessionEventProcessor(EventProcessor):
             ).first()
 
             if storage_call:
-
-                validator_ledger = substrate.get_storage(
-                    block_hash=self.block.hash,
-                    module="Staking",
-                    function="Ledger",
-                    params=validator_controller,
-                    return_scale_type=storage_call.get_return_type(),
-                    hasher=storage_call.type_hasher
-                ) or {}
+                try:
+                    validator_ledger = substrate.get_storage(
+                        block_hash=self.block.hash,
+                        module="Staking",
+                        function="Ledger",
+                        params=validator_controller,
+                        return_scale_type=storage_call.get_return_type(),
+                        hasher=storage_call.type_hasher
+                    ) or {}
+                except RemainingScaleBytesNotEmptyException:
+                    pass
 
             # Retrieve validator preferences for stash account
             storage_call = RuntimeStorage.query(db_session).filter_by(
@@ -117,15 +124,17 @@ class NewSessionEventProcessor(EventProcessor):
             ).first()
 
             if storage_call:
-
-                validator_prefs = substrate.get_storage(
-                    block_hash=self.block.hash,
-                    module="Staking",
-                    function="Validators",
-                    params=validator_ledger.get('stash', '').replace('0x', ''),
-                    return_scale_type=storage_call.get_return_type(),
-                    hasher=storage_call.type_hasher
-                ) or {'col1': {}, 'col2': {}}
+                try:
+                    validator_prefs = substrate.get_storage(
+                        block_hash=self.block.hash,
+                        module="Staking",
+                        function="Validators",
+                        params=validator_ledger.get('stash', '').replace('0x', ''),
+                        return_scale_type=storage_call.get_return_type(),
+                        hasher=storage_call.type_hasher
+                    ) or {'col1': {}, 'col2': {}}
+                except RemainingScaleBytesNotEmptyException:
+                    pass
 
             # Retrieve session account
             storage_call = RuntimeStorage.query(db_session).filter_by(
@@ -135,14 +144,17 @@ class NewSessionEventProcessor(EventProcessor):
             ).first()
 
             if storage_call:
-                validator_session = substrate.get_storage(
-                    block_hash=self.block.hash,
-                    module="Session",
-                    function="NextKeyFor",
-                    params=validator_controller,
-                    return_scale_type=storage_call.get_return_type(),
-                    hasher=storage_call.type_hasher
-                ) or ''
+                try:
+                    validator_session = substrate.get_storage(
+                        block_hash=self.block.hash,
+                        module="Session",
+                        function="NextKeyFor",
+                        params=validator_controller,
+                        return_scale_type=storage_call.get_return_type(),
+                        hasher=storage_call.type_hasher
+                    ) or ''
+                except RemainingScaleBytesNotEmptyException:
+                    pass
 
             # Retrieve nominators
             storage_call = RuntimeStorage.query(db_session).filter_by(
@@ -152,15 +164,17 @@ class NewSessionEventProcessor(EventProcessor):
             ).first()
 
             if storage_call:
-
-                exposure = substrate.get_storage(
-                    block_hash=self.block.hash,
-                    module="Staking",
-                    function="Stakers",
-                    params=validator_ledger.get('stash', '').replace('0x', ''),
-                    return_scale_type=storage_call.get_return_type(),
-                    hasher=storage_call.type_hasher
-                ) or {}
+                try:
+                    exposure = substrate.get_storage(
+                        block_hash=self.block.hash,
+                        module="Staking",
+                        function="Stakers",
+                        params=validator_ledger.get('stash', '').replace('0x', ''),
+                        return_scale_type=storage_call.get_return_type(),
+                        hasher=storage_call.type_hasher
+                    ) or {}
+                except RemainingScaleBytesNotEmptyException:
+                    pass
 
             if exposure.get('total'):
                 bonded_nominators = exposure.get('total') - exposure.get('own')
@@ -186,7 +200,6 @@ class NewSessionEventProcessor(EventProcessor):
             session_validator.save(db_session)
 
             # Store nominators
-
             for rank_nominator, nominator_info in enumerate(exposure.get('others', [])):
                 session_nominator = SessionNominator(
                     session_id=session_id,

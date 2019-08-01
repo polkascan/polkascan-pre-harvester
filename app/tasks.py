@@ -188,24 +188,31 @@ def sequence_block_recursive(self, parent_block_data, parent_sequenced_block_dat
 
     harvester = PolkascanHarvesterService(self.session)
     harvester.metadata_store = self.metadata_store
+    for nr in range(0, 10):
+        if not parent_sequenced_block_data:
+            block_id = 1
+        else:
+            block_id = parent_sequenced_block_data['id'] + 1
 
-    if not parent_sequenced_block_data:
-        block_id = 1
-    else:
-        block_id = parent_sequenced_block_data['id'] + 1
+        block = Block.query(self.session).get(block_id)
 
-    block = Block.query(self.session).get(block_id)
+        if block:
+            try:
+                sequenced_block = harvester.sequence_block(block, parent_block_data, parent_sequenced_block_data)
+                self.session.commit()
 
-    if block:
-        try:
-            sequenced_block = harvester.sequence_block(block, parent_block_data, parent_sequenced_block_data)
-            self.session.commit()
+                parent_block_data = block.asdict()
+                parent_sequenced_block_data = sequenced_block.asdict()
 
-            if sequenced_block:
-                sequence_block_recursive.delay(block.asdict(), sequenced_block.asdict())
+                if nr == 9 or not sequenced_block:
 
-            return {'processedBlockId': block_id}
-        except IntegrityError as e:
-            return {'error': 'Sequencer already started'}
-    else:
-        return {'error': 'Block {} not found'.format(block_id)}
+                    if sequenced_block:
+                        if nr == 9:
+                            sequence_block_recursive.delay(parent_block_data, parent_sequenced_block_data)
+
+                    return {'processedBlockId': block_id, 'amount': nr + 1}
+
+            except IntegrityError as e:
+                return {'error': 'Sequencer already started'}
+        else:
+            return {'error': 'Block {} not found'.format(block_id)}
