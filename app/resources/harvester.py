@@ -200,20 +200,10 @@ class SequenceBlockResource(BaseResource):
             resp.media = {'result': 'Block not found'}
 
 
-class PolkascanResetHarvesterResource(BaseResource):
+class PolkascanProcessGenesisResource(BaseResource):
 
     def on_post(self, req, resp):
-        self.session.execute('TRUNCATE TABLE data_block')
-        self.session.execute('TRUNCATE TABLE data_event')
-        self.session.execute('TRUNCATE TABLE data_extrinsic')
-        self.session.execute('TRUNCATE TABLE metadata')
-        self.session.commit()
+        harvester = PolkascanHarvesterService(self.session)
+        harvester.process_genesis()
 
-        resp.status = falcon.HTTP_201
-
-        resp.media = {
-            'status': 'success',
-            'data': {
-                'message': 'Harvester data purged'
-            }
-        }
+        return {'status': 'OK'}

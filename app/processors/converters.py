@@ -19,16 +19,18 @@
 #  converters.py
 import math
 
+from scalecodec import U32
 from scalecodec.base import ScaleBytes, ScaleDecoder
+from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
 from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61181Decoder
 
 from app.processors.base import BaseService, ProcessorRegistry
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
-from app.settings import DEBUG, SUBSTRATE_RPC_URL
+from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
-    RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant
+    RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -44,6 +46,70 @@ class PolkascanHarvesterService(BaseService):
     def __init__(self, db_session):
         self.db_session = db_session
         self.metadata_store = {}
+
+    def process_genesis(self):
+        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+
+        block = Block.query(self.db_session).filter_by(id=0).first()
+
+        # Retrieve genesis accounts
+
+        storage_call = RuntimeStorage.query(self.db_session).filter_by(
+            module_id='indices',
+            name='NextEnumSet',
+            spec_version=block.spec_version_id
+        ).first()
+
+        if storage_call:
+            genesis_account_page_count = substrate.get_storage(
+                block_hash=block.hash,
+                module="Indices",
+                function="NextEnumSet",
+                return_scale_type=storage_call.get_return_type(),
+                hasher=storage_call.type_hasher
+            ) or 0
+
+            # Get Accounts on EnumSet
+            storage_call = RuntimeStorage.query(self.db_session).filter_by(
+                module_id='indices',
+                name='EnumSet',
+                spec_version=block.spec_version_id
+            ).first()
+
+            if storage_call:
+
+                block.count_accounts_new = 0
+                block.count_accounts = 0
+
+                for account_index in range(0, genesis_account_page_count + 1):
+
+                    account_index_u32 = U32()
+                    account_index_u32.encode(account_index)
+
+                    genesis_accounts = substrate.get_storage(
+                        block_hash=block.hash,
+                        module="Indices",
+                        function="EnumSet",
+                        params=account_index_u32.data.data.hex(),
+                        return_scale_type=storage_call.get_return_type(),
+                        hasher=storage_call.type_hasher
+                    )
+
+                    block.count_accounts_new += len(genesis_accounts)
+                    block.count_accounts += len(genesis_accounts)
+
+                    for account_id in genesis_accounts:
+                        account_audit = AccountAudit(
+                            account_id=account_id.replace('0x', ''),
+                            block_id=block.id,
+                            extrinsic_idx=None,
+                            event_idx=None,
+                            type_id=ACCOUNT_AUDIT_TYPE_NEW
+                        )
+
+                        account_audit.save(self.db_session)
+
+                block.save(self.db_session)
 
     def process_metadata_type(self, type_string, spec_version):
 

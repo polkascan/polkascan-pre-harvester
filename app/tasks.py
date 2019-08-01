@@ -190,7 +190,9 @@ def sequence_block_recursive(self, parent_block_data, parent_sequenced_block_dat
     harvester.metadata_store = self.metadata_store
     for nr in range(0, 10):
         if not parent_sequenced_block_data:
-            block_id = 1
+            # At genesis state, perfom initialization
+            harvester.process_genesis()
+            block_id = 0
         else:
             block_id = parent_sequenced_block_data['id'] + 1
 
@@ -213,6 +215,6 @@ def sequence_block_recursive(self, parent_block_data, parent_sequenced_block_dat
                     return {'processedBlockId': block_id, 'amount': nr + 1}
 
             except IntegrityError as e:
-                return {'error': 'Sequencer already started'}
+                return {'error': 'Sequencer already started', 'exception': str(e)}
         else:
             return {'error': 'Block {} not found'.format(block_id)}

@@ -29,11 +29,10 @@ from app.middleware.context import ContextMiddleware
 from app.middleware.sessionmanager import SQLAlchemySessionManager
 
 from app.resources.harvester import PolkascanStartHarvesterResource, PolkascanStopHarvesterResource, \
-    PolkascanStatusHarvesterResource, PolkascanResetHarvesterResource, PolkascanProcessBlockResource, \
-    PolkaScanCheckHarvesterTaskResource, SequenceBlockResource
+    PolkascanStatusHarvesterResource, PolkascanProcessBlockResource, \
+    PolkaScanCheckHarvesterTaskResource, SequenceBlockResource, PolkascanProcessGenesisResource
 from app.resources.tools import ExtractMetadataResource, ExtractExtrinsicsResource, \
-     HealthCheckResource, ExtractEventsResource
-
+    HealthCheckResource, ExtractEventsResource
 
 # Database connection
 engine = create_engine(DB_CONNECTION, echo=DEBUG, isolation_level="READ_UNCOMMITTED")
@@ -48,10 +47,10 @@ app.add_route('/healthcheck', HealthCheckResource())
 app.add_route('/start', PolkascanStartHarvesterResource())
 app.add_route('/stop', PolkascanStopHarvesterResource())
 app.add_route('/status', PolkascanStatusHarvesterResource())
-app.add_route('/reset', PolkascanResetHarvesterResource())
 app.add_route('/process', PolkascanProcessBlockResource())
 app.add_route('/sequence', SequenceBlockResource())
 app.add_route('/task/result/{task_id}', PolkaScanCheckHarvesterTaskResource())
+app.add_route('/process_genesis', PolkascanProcessGenesisResource())
 
 app.add_route('/tools/metadata/extract', ExtractMetadataResource())
 app.add_route('/tools/extrinsics/extract', ExtractExtrinsicsResource())
