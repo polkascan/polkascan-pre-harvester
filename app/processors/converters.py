@@ -47,10 +47,8 @@ class PolkascanHarvesterService(BaseService):
         self.db_session = db_session
         self.metadata_store = {}
 
-    def process_genesis(self):
+    def process_genesis(self, block):
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
-
-        block = Block.query(self.db_session).filter_by(id=0).first()
 
         # Retrieve genesis accounts
 

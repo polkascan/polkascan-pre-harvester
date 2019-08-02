@@ -199,11 +199,3 @@ class SequenceBlockResource(BaseResource):
             resp.status = falcon.HTTP_404
             resp.media = {'result': 'Block not found'}
 
-
-class PolkascanProcessGenesisResource(BaseResource):
-
-    def on_post(self, req, resp):
-        harvester = PolkascanHarvesterService(self.session)
-        harvester.process_genesis()
-
-        return {'status': 'OK'}

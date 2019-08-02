@@ -190,13 +190,23 @@ def sequence_block_recursive(self, parent_block_data, parent_sequenced_block_dat
     harvester.metadata_store = self.metadata_store
     for nr in range(0, 10):
         if not parent_sequenced_block_data:
-            # At genesis state, perfom initialization
-            harvester.process_genesis()
+            # No block ever sequenced, check if chain is at genesis state
+
+            block = Block.query(self.session).order_by('id').first()
+
+            if block.id == 1:
+                # Add genesis block
+                block = harvester.add_block(block.parent_hash)
+
+            if block.id != 0:
+                return {'error': 'Chain not at genesis'}
+
+            harvester.process_genesis(block)
             block_id = 0
         else:
             block_id = parent_sequenced_block_data['id'] + 1
 
-        block = Block.query(self.session).get(block_id)
+            block = Block.query(self.session).get(block_id)
 
         if block:
             try:
@@ -212,7 +222,7 @@ def sequence_block_recursive(self, parent_block_data, parent_sequenced_block_dat
                         if nr == 9:
                             sequence_block_recursive.delay(parent_block_data, parent_sequenced_block_data)
 
-                    return {'processedBlockId': block_id, 'amount': nr + 1}
+                    return {'processedBlockId': block.id, 'amount': nr + 1}
 
             except IntegrityError as e:
                 return {'error': 'Sequencer already started', 'exception': str(e)}
