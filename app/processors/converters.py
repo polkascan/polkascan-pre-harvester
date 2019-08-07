@@ -93,19 +93,20 @@ class PolkascanHarvesterService(BaseService):
                         hasher=storage_call.type_hasher
                     )
 
-                    block.count_accounts_new += len(genesis_accounts)
-                    block.count_accounts += len(genesis_accounts)
+                    if genesis_accounts:
+                        block.count_accounts_new += len(genesis_accounts)
+                        block.count_accounts += len(genesis_accounts)
 
-                    for account_id in genesis_accounts:
-                        account_audit = AccountAudit(
-                            account_id=account_id.replace('0x', ''),
-                            block_id=block.id,
-                            extrinsic_idx=None,
-                            event_idx=None,
-                            type_id=ACCOUNT_AUDIT_TYPE_NEW
-                        )
+                        for account_id in genesis_accounts:
+                            account_audit = AccountAudit(
+                                account_id=account_id.replace('0x', ''),
+                                block_id=block.id,
+                                extrinsic_idx=None,
+                                event_idx=None,
+                                type_id=ACCOUNT_AUDIT_TYPE_NEW
+                            )
 
-                        account_audit.save(self.db_session)
+                            account_audit.save(self.db_session)
 
                 block.save(self.db_session)
 
