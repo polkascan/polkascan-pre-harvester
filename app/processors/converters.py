@@ -28,9 +28,10 @@ from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61
 from app.processors.base import BaseService, ProcessorRegistry
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
-from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW
+from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_INDEX_AUDIT_TYPE_NEW
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
-    RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit
+    RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
+    AccountIndexAudit
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -79,10 +80,10 @@ class PolkascanHarvesterService(BaseService):
                 block.count_accounts_new = 0
                 block.count_accounts = 0
 
-                for account_index in range(0, genesis_account_page_count + 1):
+                for enum_set_nr in range(0, genesis_account_page_count + 1):
 
                     account_index_u32 = U32()
-                    account_index_u32.encode(account_index)
+                    account_index_u32.encode(enum_set_nr)
 
                     genesis_accounts = substrate.get_storage(
                         block_hash=block.hash,
@@ -97,7 +98,7 @@ class PolkascanHarvesterService(BaseService):
                         block.count_accounts_new += len(genesis_accounts)
                         block.count_accounts += len(genesis_accounts)
 
-                        for account_id in genesis_accounts:
+                        for idx, account_id in enumerate(genesis_accounts):
                             account_audit = AccountAudit(
                                 account_id=account_id.replace('0x', ''),
                                 block_id=block.id,
@@ -107,6 +108,19 @@ class PolkascanHarvesterService(BaseService):
                             )
 
                             account_audit.save(self.db_session)
+
+                            account_index_id = enum_set_nr * 64 + idx
+
+                            account_index_audit = AccountIndexAudit(
+                                account_index_id=account_index_id,
+                                account_id=account_id.replace('0x', ''),
+                                block_id=block.id,
+                                extrinsic_idx=None,
+                                event_idx=None,
+                                type_id=ACCOUNT_INDEX_AUDIT_TYPE_NEW
+                            )
+
+                            account_index_audit.save(self.db_session)
 
                 block.save(self.db_session)
 
