@@ -19,6 +19,8 @@
 #  converters.py
 import math
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from scalecodec import U32
 from scalecodec.base import ScaleBytes, ScaleDecoder
 from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
@@ -276,13 +278,21 @@ class PolkascanHarvesterService(BaseService):
                             else:
                                 module_id = '{}_1'.format(module.get_identifier())
 
+                            # Storage backwards compt check
+                            if module.storage and isinstance(module.storage, list):
+                                storage_functions = module.storage
+                            elif module.storage and isinstance(getattr(module.storage, 'value'), dict):
+                                storage_functions = module.storage.items
+                            else:
+                                storage_functions = []
+
                             runtime_module = RuntimeModule(
                                 spec_version=spec_version,
                                 module_id=module_id,
                                 prefix=module.prefix,
                                 name=module.name,
                                 count_call_functions=len(module.calls or []),
-                                count_storage_functions=len(module.storage or []),
+                                count_storage_functions=len(storage_functions),
                                 count_events=len(module.events or [])
                             )
                             runtime_module.save(self.db_session)
@@ -339,8 +349,8 @@ class PolkascanHarvesterService(BaseService):
                                         )
                                         runtime_event_attr.save(self.db_session)
 
-                            if len(module.storage or []) > 0:
-                                for idx, storage in enumerate(module.storage):
+                            if len(storage_functions) > 0:
+                                for idx, storage in enumerate(storage_functions):
 
                                     # Determine type
                                     type_hasher = None
@@ -427,7 +437,7 @@ class PolkascanHarvesterService(BaseService):
 
                     # Put in local store
                     self.metadata_store[spec_version] = metadata_decoder
-                except:
+                except SQLAlchemyError as e:
                     self.db_session.rollback()
 
     def add_block(self, block_hash):
@@ -517,6 +527,9 @@ class PolkascanHarvesterService(BaseService):
             event_idx = 0
 
             for event in events_decoder.elements:
+
+                event.value['module_id'] = event.value['module_id'].lower()
+
                 model = Event(
                     block_id=block_id,
                     event_idx=event_idx,
