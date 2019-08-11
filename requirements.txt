@@ -22,6 +22,7 @@ meinheld==0.6.1
 more-itertools==6.0.0
 mysql-connector==2.1.7
 mysql-connector-python==8.0.15
+packaging==19.1
 pluggy==0.9.0
 protobuf==3.6.1
 py==1.8.0

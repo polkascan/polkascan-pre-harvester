@@ -171,7 +171,12 @@ class SequenceBlockResource(BaseResource):
 
         if block:
             print('Sequencing #{} ...'.format(block.id))
+
             harvester = PolkascanHarvesterService(self.session)
+
+            if block.id == 1:
+                # Add genesis block
+                parent_block = harvester.add_block(block.parent_hash)
 
             block_total = BlockTotal.query(self.session).filter_by(id=block.id).first()
             parent_block = Block.query(self.session).filter(Block.id == block.id - 1).first()
