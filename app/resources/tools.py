@@ -104,3 +104,40 @@ class ExtractEventsResource(BaseResource):
 class HealthCheckResource(BaseResource):
     def on_get(self, req, resp):
         resp.media = {'status': 'OK'}
+
+
+class StorageValidatorResource(BaseResource):
+
+    def on_get(self, req, resp):
+
+        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+
+        resp.status = falcon.HTTP_200
+
+        current_era = substrate.get_storage(
+            block_hash="0x519fc882113d886615ad5c7a93f8319640270ab8a09546798f7f8d973a99b017",
+            module="Staking",
+            function="CurrentEra",
+            return_scale_type='BlockNumber'
+        )
+
+        # Retrieve validator for new session from storage
+        validators = substrate.get_storage(
+            block_hash="0x519fc882113d886615ad5c7a93f8319640270ab8a09546798f7f8d973a99b017",
+            module="Session",
+            function="Validators",
+            return_scale_type='Vec<AccountId>'
+        ) or []
+
+        # for validator in validators:
+        #     storage_bytes = substrate.get_storage("0x904871d0e6284c0555134fa187891580979a2fc426a4f8873a8d15d8cca6020f",
+        #                                           "Balances", "FreeBalance", validator.replace('0x', ''))
+        #     #print(validator.replace('0x', ''))
+        #
+        #     if storage_bytes:
+        #         obj = ScaleDecoder.get_decoder_class('Balance', ScaleBytes(storage_bytes))
+        #         nominators.append(obj.decode())
+
+        resp.media = {'validators': validators, 'current_era': current_era}
+
+
