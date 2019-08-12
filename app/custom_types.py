@@ -16,6 +16,25 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Polkascan. If not, see <http://www.gnu.org/licenses/>.
 #
-#  __init__.py
+#  main.py
 
-from app.custom_types import *
+###
+# Examples of custom types
+###
+
+# from scalecodec import Enum, Struct
+#
+#
+# class ContentVisibility(Enum):
+#     value_list = ['Draft', 'Public']
+#
+#
+# class ContentMetadata(Struct):
+#     type_mapping = (
+#         ('owner', 'AccountId'),
+#         ('added_at', 'BlockAndTime'),
+#         ('children_ids', 'Vec<ContentId>'),
+#         ('visibility', 'ContentVisibility'),
+#         ('schema', 'SchemaId'),
+#         ('json', 'Vec<u8>'),
+#     )
