@@ -32,7 +32,7 @@ from app.models.data import Extrinsic, Block, BlockTotal
 from app.processors.converters import PolkascanHarvesterService, HarvesterCouldNotAddBlock, BlockAlreadyAdded
 from substrateinterface import SubstrateInterface
 
-from app.settings import DB_CONNECTION, DEBUG, SUBSTRATE_RPC_URL
+from app.settings import DB_CONNECTION, DEBUG, SUBSTRATE_RPC_URL, TYPE_REGISTRY
 
 CELERY_BROKER = os.environ.get('CELERY_BROKER')
 CELERY_BACKEND = os.environ.get('CELERY_BACKEND')
@@ -72,7 +72,7 @@ class BaseTask(celery.Task):
 @app.task(base=BaseTask, bind=True)
 def accumulate_block_recursive(self, block_hash, end_block_hash=None):
 
-    harvester = PolkascanHarvesterService(self.session)
+    harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
     harvester.metadata_store = self.metadata_store
 
     block = None
@@ -186,7 +186,7 @@ def start_harvester(self, check_gaps=False):
 @app.task(base=BaseTask, bind=True)
 def sequence_block_recursive(self, parent_block_data, parent_sequenced_block_data=None):
 
-    harvester = PolkascanHarvesterService(self.session)
+    harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
     harvester.metadata_store = self.metadata_store
     for nr in range(0, 10):
         if not parent_sequenced_block_data:
