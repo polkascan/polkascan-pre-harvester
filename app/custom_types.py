@@ -25,6 +25,10 @@
 # from scalecodec import Enum, Struct
 #
 #
+# class SchemaId(U64):
+#     pass
+#
+#
 # class ContentVisibility(Enum):
 #     value_list = ['Draft', 'Public']
 #
