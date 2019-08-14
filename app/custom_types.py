@@ -22,7 +22,7 @@
 # Examples of custom types
 ###
 
-# from scalecodec import Enum, Struct
+# from scalecodec import Enum, Struct, U64
 #
 #
 # class SchemaId(U64):
