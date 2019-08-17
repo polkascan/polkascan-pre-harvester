@@ -1,0 +1,7 @@
+{
+  "default": {
+    "Keys": "SessionKeysPolkadot",
+    "BlockNumber": "U32",
+    "SessionIndex": "U32"
+  }
+}
