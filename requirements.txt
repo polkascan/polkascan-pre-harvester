@@ -40,5 +40,5 @@ tornado==5.1.1
 urllib3==1.24.2
 vine==1.2.0
 
-git+https://github.com/polkascan/py-scale-codec.git@feature/type_registry#egg=scalecodec
+git+https://github.com/polkascan/py-scale-codec.git@master#egg=scalecodec
 git+https://github.com/polkascan/py-substrate-interface.git@master#egg=substrateinterface
