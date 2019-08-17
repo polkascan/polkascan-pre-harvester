@@ -32,7 +32,8 @@ from app.schemas import load_schema
 from app.processors.converters import PolkascanHarvesterService, BlockAlreadyAdded
 from substrateinterface import SubstrateInterface
 from app.tasks import accumulate_block_recursive, start_harvester
-from app.settings import SUBSTRATE_RPC_URL
+from app.settings import SUBSTRATE_RPC_URL, TYPE_REGISTRY
+
 
 class PolkascanStartHarvesterResource(BaseResource):
 
@@ -123,7 +124,7 @@ class PolkascanProcessBlockResource(BaseResource):
 
         if block_hash:
             print('Processing {} ...'.format(block_hash))
-            harvester = PolkascanHarvesterService(self.session)
+            harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
 
             block = Block.query(self.session).filter(Block.hash == block_hash).first()
 
@@ -172,7 +173,7 @@ class SequenceBlockResource(BaseResource):
         if block:
             print('Sequencing #{} ...'.format(block.id))
 
-            harvester = PolkascanHarvesterService(self.session)
+            harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
 
             if block.id == 1:
                 # Add genesis block
