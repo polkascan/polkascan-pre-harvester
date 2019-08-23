@@ -414,10 +414,15 @@ class PolkascanHarvesterService(BaseService):
                                     try:
                                         value_obj = ScaleDecoder.get_decoder_class(
                                             constant.type,
-                                            ScaleBytes("0x{}".format(constant.constant_value))
+                                            ScaleBytes(constant.constant_value)
                                         )
-                                        value = value_obj.decode()
+                                        value_obj.decode()
+                                        value = value_obj.serialize()
                                     except ValueError:
+                                        value = constant.constant_value
+                                    except RemainingScaleBytesNotEmptyException:
+                                        value = constant.constant_value
+                                    except NotImplementedError:
                                         value = constant.constant_value
 
                                     runtime_constant = RuntimeConstant(
