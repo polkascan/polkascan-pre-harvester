@@ -1,6 +1,5 @@
 {
   "default": {
-    "Keys": "EdgewareKeys",
     "ValidatorPrefs": "ValidatorPrefsLegacy"
   }
 }
