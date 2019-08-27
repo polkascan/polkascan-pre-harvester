@@ -48,6 +48,7 @@ class NewSessionEventProcessor(EventProcessor):
         session_id = self.event.attributes[0]['value']
         current_era = None
         validators = []
+        nominators = []
         validation_session_lookup = {}
 
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
@@ -293,11 +294,15 @@ class NewSessionEventProcessor(EventProcessor):
 
             # Store nominators
             for rank_nominator, nominator_info in enumerate(exposure.get('others', [])):
+
+                nominator_stash = nominator_info.get('who').replace('0x', '')
+                nominators.append(nominator_stash)
+
                 session_nominator = SessionNominator(
                     session_id=session_id,
                     rank_validator=rank_nr,
                     rank_nominator=rank_nominator,
-                    nominator_stash=nominator_info.get('who').replace('0x', ''),
+                    nominator_stash=nominator_stash,
                     bonded=nominator_info.get('value'),
                 )
 
@@ -311,6 +316,7 @@ class NewSessionEventProcessor(EventProcessor):
             created_at_extrinsic=self.event.extrinsic_idx,
             created_at_event=self.event.event_idx,
             count_validators=len(validators),
+            count_nominators=len(set(nominators)),
             era=current_era
         )
 
