@@ -33,15 +33,6 @@ class TimestampExtrinsicProcessor(ExtrinsicProcessor):
         # Store block date time related fields
         for param in self.extrinsic.params:
             if param.get('name') == 'now':
-                self.block.datetime = dateutil.parser.parse(param.get('value')).replace(tzinfo=pytz.UTC)
-                self.block.year = self.block.datetime.year
-                self.block.month = self.block.datetime.month
-                self.block.week = self.block.datetime.strftime("%W")
-                self.block.day = self.block.datetime.day
-                self.block.hour = self.block.datetime.hour
-                self.block.full_month = self.block.datetime.strftime("%Y%m")
-                self.block.full_week = self.block.datetime.strftime("%Y%W")
-                self.block.full_day = self.block.datetime.strftime("%Y%m%d")
-                self.block.full_hour = self.block.datetime.strftime("%Y%m%d%H")
+                self.block.set_datetime(dateutil.parser.parse(param.get('value')).replace(tzinfo=pytz.UTC))
 
 

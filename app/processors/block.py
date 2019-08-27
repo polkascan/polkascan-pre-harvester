@@ -74,6 +74,7 @@ class BlockTotalProcessor(BlockProcessor):
                 self.sequenced_block.blocktime = (self.block.datetime - parent_block_data['datetime']).total_seconds()
         else:
             self.sequenced_block.blocktime = 0
+            self.sequenced_block.parent_datetime = self.block.datetime
 
         self.sequenced_block.total_extrinsics = int(parent_sequenced_block_data.get('total_extrinsics', 0)) + self.block.count_extrinsics
         self.sequenced_block.total_extrinsics_success = int(parent_sequenced_block_data.get('total_extrinsics_success', 0)) + self.block.count_extrinsics_success

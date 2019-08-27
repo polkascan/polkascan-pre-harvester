@@ -74,6 +74,18 @@ class Block(BaseModel):
     spec_version_id = sa.Column(sa.String(64), nullable=False)
     debug_info = sa.Column(sa.JSON(), default=None, server_default=None)
 
+    def set_datetime(self, datetime):
+        self.datetime = datetime
+        self.year = self.datetime.year
+        self.month = self.datetime.month
+        self.week = self.datetime.strftime("%W")
+        self.day = self.datetime.day
+        self.hour = self.datetime.hour
+        self.full_month = self.datetime.strftime("%Y%m")
+        self.full_week = self.datetime.strftime("%Y%W")
+        self.full_day = self.datetime.strftime("%Y%m%d")
+        self.full_hour = self.datetime.strftime("%Y%m%d%H")
+
     @classmethod
     def get_head(cls, session):
         with session.begin():

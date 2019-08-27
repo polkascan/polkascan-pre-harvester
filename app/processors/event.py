@@ -41,11 +41,7 @@ class NewSessionEventProcessor(EventProcessor):
     module_id = 'session'
     event_id = 'NewSession'
 
-    def accumulation_hook(self, db_session):
-        self.block.count_sessions_new += 1
-
-    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
-        session_id = self.event.attributes[0]['value']
+    def add_session(self, db_session, session_id):
         current_era = None
         validators = []
         nominators = []
@@ -142,7 +138,8 @@ class NewSessionEventProcessor(EventProcessor):
                     if validator_session_item['keys'].get('ed25519'):
                         session_key = validator_session_item['keys'].get('ed25519')
 
-                    validation_session_lookup[validator_session_item['validator'].replace('0x', '')] = session_key.replace('0x', '')
+                    validation_session_lookup[
+                        validator_session_item['validator'].replace('0x', '')] = session_key.replace('0x', '')
 
         for rank_nr, validator_account in enumerate(validators):
             validator_stash = None
@@ -294,7 +291,6 @@ class NewSessionEventProcessor(EventProcessor):
 
             # Store nominators
             for rank_nominator, nominator_info in enumerate(exposure.get('others', [])):
-
                 nominator_stash = nominator_info.get('who').replace('0x', '')
                 nominators.append(nominator_stash)
 
@@ -311,8 +307,8 @@ class NewSessionEventProcessor(EventProcessor):
         # Store session
         session = Session(
             id=session_id,
-            start_at_block=self.event.block_id + 1,
-            created_at_block=self.event.block_id,
+            start_at_block=self.block.id + 1,
+            created_at_block=self.block.id,
             created_at_extrinsic=self.event.extrinsic_idx,
             created_at_event=self.event.event_idx,
             count_validators=len(validators),
@@ -326,17 +322,24 @@ class NewSessionEventProcessor(EventProcessor):
         prev_session = Session.query(db_session).filter_by(id=session_id - 1).first()
 
         if prev_session:
-            count_blocks = self.event.block_id - prev_session.start_at_block + 1
+            count_blocks = self.block.id - prev_session.start_at_block + 1
         else:
-            count_blocks = self.event.block_id
+            count_blocks = self.block.id
 
         session_total = SessionTotal(
             id=session_id - 1,
-            end_at_block=self.event.block_id,
+            end_at_block=self.block.id,
             count_blocks=count_blocks
         )
 
         session_total.save(db_session)
+
+    def accumulation_hook(self, db_session):
+        self.block.count_sessions_new += 1
+
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+        session_id = self.event.attributes[0]['value']
+        self.add_session(db_session, session_id)
 
 
 class NewAccountEventProcessor(EventProcessor):

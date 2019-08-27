@@ -21,6 +21,7 @@ import math
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.processors import NewSessionEventProcessor
 from app.type_registry import load_type_registry
 from scalecodec import U32
 from scalecodec.base import ScaleBytes, ScaleDecoder, RuntimeConfiguration
@@ -56,8 +57,11 @@ class PolkascanHarvesterService(BaseService):
     def process_genesis(self, block):
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
 
-        # Retrieve genesis accounts
+        # Set block time of parent block
+        child_block = Block.query(self.db_session).filter_by(parent_hash=block.hash).first()
+        block.set_datetime(child_block.datetime)
 
+        # Retrieve genesis accounts
         storage_call = RuntimeStorage.query(self.db_session).filter_by(
             module_id='indices',
             name='NextEnumSet',
@@ -127,7 +131,11 @@ class PolkascanHarvesterService(BaseService):
 
                             account_index_audit.save(self.db_session)
 
-                block.save(self.db_session)
+        block.save(self.db_session)
+
+        # Create initial session
+        initial_session_event = NewSessionEventProcessor(block, Event(), None)
+        initial_session_event.add_session(db_session=self.db_session, session_id=0)
 
     def process_metadata_type(self, type_string, spec_version):
 
