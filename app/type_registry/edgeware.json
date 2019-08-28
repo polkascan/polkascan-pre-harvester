@@ -1,6 +1,21 @@
 {
   "default": {
-    "Keys": "EdgewareKeys",
-    "ValidatorPrefs": "ValidatorPrefsLegacy"
+    "Keys": "SessionKeysSubstrate",
+    "BlockNumber": "U32",
+    "SessionIndex": "U32",
+    "AuctionIndex": "U32",
+    "AuthIndex": "U32",
+    "BalanceUpload": "(AccountId, u64)",
+    "EgressQueueRoot": "(ParaId, Hash)",
+    "EventIndex": "u32",
+    "LeasePeriodOf": "LeasePeriod",
+    "LeasePeriod": "BlockBumber",
+    "MemberCount": "u32",
+    "ReportIdOf": "Hash",
+    "SubId": "u32",
+    "Weight": "u32",
+    "WeightMultiplier": "u64",
+    "WinningData": "Vec<WinningDataEntry>",
+    "Index": "U32"
   }
 }
