@@ -30,9 +30,11 @@ class TimestampExtrinsicProcessor(ExtrinsicProcessor):
     call_id = 'set'
 
     def accumulation_hook(self, db_session):
-        # Store block date time related fields
-        for param in self.extrinsic.params:
-            if param.get('name') == 'now':
-                self.block.set_datetime(dateutil.parser.parse(param.get('value')).replace(tzinfo=pytz.UTC))
+
+        if self.extrinsic.success:
+            # Store block date time related fields
+            for param in self.extrinsic.params:
+                if param.get('name') == 'now':
+                    self.block.set_datetime(dateutil.parser.parse(param.get('value')).replace(tzinfo=pytz.UTC))
 
 
