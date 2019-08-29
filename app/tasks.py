@@ -109,6 +109,8 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
     except BlockAlreadyAdded as e:
         print('. Skipped {} '.format(block_hash))
         start_sequencer.delay()
+    except IntegrityError as e:
+        print('. Skipped duplicate {} '.format(block_hash))
     except Exception as exc:
         print('! ERROR adding {}'.format(block_hash))
         raise HarvesterCouldNotAddBlock(block_hash) from exc
