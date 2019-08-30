@@ -9,7 +9,7 @@
     "EgressQueueRoot": "(ParaId, Hash)",
     "EventIndex": "u32",
     "LeasePeriodOf": "LeasePeriod",
-    "LeasePeriod": "BlockBumber",
+    "LeasePeriod": "BlockNumber",
     "MemberCount": "u32",
     "ReportIdOf": "Hash",
     "SubId": "u32",
