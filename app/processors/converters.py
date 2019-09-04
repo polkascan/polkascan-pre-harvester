@@ -32,7 +32,8 @@ from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61
 from app.processors.base import BaseService, ProcessorRegistry
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
-from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_INDEX_AUDIT_TYPE_NEW
+from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
+    SUBSTRATE_MOCK_EXTRINSICS
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
     AccountIndexAudit
@@ -464,6 +465,10 @@ class PolkascanHarvesterService(BaseService):
 
         # Extract data from json_block
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+
+        if SUBSTRATE_MOCK_EXTRINSICS:
+            substrate.mock_extrinsics = SUBSTRATE_MOCK_EXTRINSICS
+
         json_block = substrate.get_chain_block(block_hash)
 
         parent_hash = json_block['block']['header'].pop('parentHash')
