@@ -493,13 +493,34 @@ class DemocracyStartedProcessor(EventProcessor):
                 self.event.attributes[0]['type'] == 'ReferendumIndex' and \
                 self.event.attributes[1]['type'] == 'VoteThreshold':
 
+            # Retrieve proposal from storage
+            substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+            storage_call = RuntimeStorage.query(db_session).filter_by(
+                module_id='democracy',
+                name='ReferendumInfoOf',
+            ).order_by(RuntimeStorage.spec_version.desc()).first()
+
+            proposal = substrate.get_storage(
+                block_hash=self.block.hash,
+                module='Democracy',
+                function='ReferendumInfoOf',
+                params=self.event.attributes[0]['valueRaw'],
+                return_scale_type=storage_call.type_value,
+                hasher=storage_call.type_hasher,
+                metadata=self.metadata
+            )
+
             referendum_audit = DemocracyReferendumAudit(
                 democracy_referendum_id=self.event.attributes[0]['value'],
                 block_id=self.event.block_id,
                 extrinsic_idx=self.event.extrinsic_idx,
                 event_idx=self.event.event_idx,
                 type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED,
-                data={'vote_threshold': self.event.attributes[1]['value']}
+                data={
+                    'vote_threshold': self.event.attributes[1]['value'],
+                    'ReferendumIndex': self.event.attributes[0]['valueRaw'],
+                    'proposal': proposal
+                }
             )
 
             referendum_audit.save(db_session)

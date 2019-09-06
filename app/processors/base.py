@@ -121,10 +121,11 @@ class EventProcessor(Processor):
     module_id = None
     event_id = None
 
-    def __init__(self, block, event, extrinsic=None):
+    def __init__(self, block, event, extrinsic=None, metadata=None):
         self.block = block
         self.event = event
         self.extrinsic = extrinsic
+        self.metadata = metadata
 
 
 class ExtrinsicProcessor(Processor):

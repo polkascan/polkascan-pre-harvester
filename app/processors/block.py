@@ -24,12 +24,13 @@ import dateutil
 from sqlalchemy.orm.exc import NoResultFound
 
 from app.models.data import Log, AccountAudit, Account, AccountIndexAudit, AccountIndex, DemocracyProposalAudit, \
-    DemocracyProposal, DemocracyReferendumAudit, DemocracyReferendum
+    DemocracyProposal, DemocracyReferendumAudit, DemocracyReferendum, DemocracyVoteAudit, DemocracyVote
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
-    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, SUBSTRATE_ADDRESS_TYPE
+    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, SUBSTRATE_ADDRESS_TYPE, DEMOCRACY_VOTE_AUDIT_TYPE_NORMAL, \
+    DEMOCRACY_VOTE_AUDIT_TYPE_PROXY
 from app.utils.ss58 import ss58_encode, ss58_encode_account_index
 from scalecodec.base import ScaleBytes
 
@@ -186,10 +187,13 @@ class DemocracyReferendumBlockProcessor(BlockProcessor):
 
             success = None
             vote_threshold = None
+            proposal = None
 
             if referendum_audit.type_id == DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED:
                 status = 'Started'
                 vote_threshold = referendum_audit.data.get('vote_threshold')
+                proposal = referendum_audit.data.get('proposal')
+
             elif referendum_audit.type_id == DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED:
                 status = 'Passed'
             elif referendum_audit.type_id == DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED:
@@ -205,6 +209,9 @@ class DemocracyReferendumBlockProcessor(BlockProcessor):
             try:
                 referendum = DemocracyReferendum.query(db_session).filter_by(id=referendum_audit.democracy_referendum_id).one()
 
+                if proposal:
+                    referendum.proposal = proposal
+
                 referendum.status = status
                 referendum.updated_at_block = self.block.id
                 referendum.success = success
@@ -216,11 +223,47 @@ class DemocracyReferendumBlockProcessor(BlockProcessor):
                     vote_threshold=vote_threshold,
                     created_at_block=self.block.id,
                     updated_at_block=self.block.id,
+                    proposal=proposal,
                     success=success,
                     status=status
                 )
 
             referendum.save(db_session)
+
+
+class DemocracyVoteBlockProcessor(BlockProcessor):
+
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+
+        for vote_audit in DemocracyVoteAudit.query(db_session).filter_by(block_id=self.block.id).order_by('extrinsic_idx'):
+
+            try:
+                vote = DemocracyVote.query(db_session).filter_by(
+                    democracy_referendum_id=vote_audit.democracy_referendum_id,
+                    stash_account_id=vote_audit.data.get('stash_account_id')
+                ).one()
+
+                vote.updated_at_block = self.block.id
+
+            except NoResultFound:
+
+                vote = DemocracyVote(
+                    democracy_referendum_id=vote_audit.democracy_referendum_id,
+                    created_at_block=self.block.id,
+                    updated_at_block=self.block.id,
+                    stash_account_id=vote_audit.data.get('stash_account_id')
+                )
+
+            vote.vote_account_id = vote_audit.data.get('vote_account_id')
+            vote.vote_raw = vote_audit.data.get('vote_raw')
+            vote.vote_yes = vote_audit.data.get('vote_yes')
+            vote.vote_no = vote_audit.data.get('vote_no')
+            vote.stash = vote_audit.data.get('stash')
+            vote.conviction = vote_audit.data.get('conviction')
+            vote.vote_yes_weighted = vote_audit.data.get('vote_yes_weighted')
+            vote.vote_no_weighted = vote_audit.data.get('vote_no_weighted')
+
+            vote.save(db_session)
 
 
 class AccountIndexBlockProcessor(BlockProcessor):

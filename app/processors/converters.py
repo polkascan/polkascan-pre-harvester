@@ -686,7 +686,8 @@ class PolkascanHarvesterService(BaseService):
                 extrinsic = extrinsics[event.extrinsic_idx]
 
             for processor_class in ProcessorRegistry().get_event_processors(event.module_id, event.event_id):
-                event_processor = processor_class(block, event, extrinsic)
+                event_processor = processor_class(block, event, extrinsic,
+                                                  metadata=self.metadata_store.get(block.spec_version_id))
                 event_processor.accumulation_hook(self.db_session)
 
         # Process block processors

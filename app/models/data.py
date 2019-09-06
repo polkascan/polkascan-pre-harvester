@@ -375,6 +375,36 @@ class DemocracyReferendumAudit(BaseModel):
     data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
 
 
+class DemocracyVote(BaseModel):
+    __tablename__ = 'data_democracy_vote'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    democracy_referendum_id = sa.Column(sa.Integer(), nullable=True, index=True)
+    vote_account_id = sa.Column(sa.String(64), index=True, nullable=True)
+    stash_account_id = sa.Column(sa.String(64), index=True, nullable=True)
+    vote_raw = sa.Column(sa.Integer(), nullable=True)
+    vote_yes = sa.Column(sa.Boolean(), nullable=True)
+    vote_no = sa.Column(sa.Boolean(), nullable=True)
+    stash = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True)
+    conviction = sa.Column(sa.Integer(), nullable=True)
+    vote_yes_weighted = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True)
+    vote_no_weighted = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True)
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
+
+
+class DemocracyVoteAudit(BaseModel):
+    __tablename__ = 'data_democracy_vote_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    democracy_referendum_id = sa.Column(sa.Integer(), nullable=False, index=True)
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    type_id = sa.Column(sa.Integer(), nullable=False)
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+
+
 class Contract(BaseModel):
     __tablename__ = 'data_contract'
 
