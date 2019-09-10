@@ -279,7 +279,10 @@ class AccountIndexBlockProcessor(BlockProcessor):
                 account_index = AccountIndex(
                     id=account_index_audit.account_index_id,
                     account_id=account_index_audit.account_id,
-                    short_address=ss58_encode_account_index(account_index_audit.account_index_id),
+                    short_address=ss58_encode_account_index(
+                        account_index_audit.account_index_id,
+                        SUBSTRATE_ADDRESS_TYPE
+                    ),
                     created_at_block=self.block.id,
                     updated_at_block=self.block.id
                 )
