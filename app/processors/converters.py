@@ -683,7 +683,10 @@ class PolkascanHarvesterService(BaseService):
         for event in events:
             extrinsic = None
             if event.extrinsic_idx is not None:
-                extrinsic = extrinsics[event.extrinsic_idx]
+                try:
+                    extrinsic = extrinsics[event.extrinsic_idx]
+                except IndexError:
+                    extrinsic = None
 
             for processor_class in ProcessorRegistry().get_event_processors(event.module_id, event.event_id):
                 event_processor = processor_class(block, event, extrinsic,
@@ -739,7 +742,10 @@ class PolkascanHarvesterService(BaseService):
             for event in events:
                 extrinsic = None
                 if event.extrinsic_idx is not None:
-                    extrinsic = extrinsics[event.extrinsic_idx]
+                    try:
+                        extrinsic = extrinsics[event.extrinsic_idx]
+                    except IndexError:
+                        extrinsic = None
 
                 for processor_class in ProcessorRegistry().get_event_processors(event.module_id, event.event_id):
                     event_processor = processor_class(block, event, extrinsic)
