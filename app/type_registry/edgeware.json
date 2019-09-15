@@ -102,6 +102,14 @@
         ["ProposalTitle", "Vec<u8>"],
         ["ProposalContents", "Vec<u8>"]
       ]
+    },
+    "Balance2": "Balance",
+    "DispatchError": {
+      "type": "struct",
+      "type_mapping": [
+        ["module", "Option<u8>"],
+        ["error", "u8"]
+      ]
     }
   }
 }
