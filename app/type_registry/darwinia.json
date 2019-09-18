@@ -5,13 +5,19 @@
     "RingBalanceOf": "u128",
     "KtonBalanceOf": "u128",
     "ExtendedBalance": "u128",
-    "Keys": "SessionKeysPolkadot",
+    "Keys": {
+      "type": "struct",
+      "type_mapping": [
+         ["grandpa", "AccountId"],
+         ["babe", "AccountId"]
+      ]
+    },
     "ValidatorPrefs": "ValidatorPrefsLegacy",
     "StakingBalance": {
       "type": "enum",
-      "value_list": [
-        "Ring",
-        "Kton"
+      "type_mapping": [
+         ["Ring", "RingBalanceOf"],
+         ["Kton", "KtonBalanceOf"]
       ]
     },
     "TimeDepositItem": {

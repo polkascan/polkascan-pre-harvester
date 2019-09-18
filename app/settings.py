@@ -42,6 +42,11 @@ TYPE_REGISTRY = os.environ.get("TYPE_REGISTRY", "default")
 
 DEBUG = bool(os.environ.get("DEBUG", False))
 
+# Version compatibility switches
+
+LEGACY_SESSION_VALIDATOR_LOOKUP = bool(os.environ.get("LEGACY_SESSION_VALIDATOR_LOOKUP", False))
+
+
 # Constants
 
 ACCOUNT_AUDIT_TYPE_NEW = 1

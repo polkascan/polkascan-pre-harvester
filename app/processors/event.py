@@ -28,7 +28,7 @@ from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCO
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
     SUBSTRATE_RPC_URL, DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
-    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED
+    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, LEGACY_SESSION_VALIDATOR_LOOKUP
 from app.utils.ss58 import ss58_encode
 from scalecodec import ScaleBytes
 from scalecodec.base import ScaleDecoder
@@ -89,7 +89,7 @@ class NewSessionEventProcessor(EventProcessor):
                 pass
 
         # Retrieve all sessions in one call
-        if version.parse(substrate.get_version()) >= version.parse("0.5.0"):
+        if not LEGACY_SESSION_VALIDATOR_LOOKUP:
 
             # Retrieve session account
             # TODO move to network specific data types
@@ -149,7 +149,7 @@ class NewSessionEventProcessor(EventProcessor):
             validator_session = ''
             exposure = {}
 
-            if version.parse(substrate.get_version()) >= version.parse("0.5.0"):
+            if not LEGACY_SESSION_VALIDATOR_LOOKUP:
                 validator_stash = validator_account.replace('0x', '')
 
                 # Retrieve stash account
