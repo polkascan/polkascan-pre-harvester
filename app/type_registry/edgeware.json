@@ -23,7 +23,6 @@
     "OpaqueTimeSlot": "Bytes",
     "<AuthorityId as RuntimeAppPublic>::Signature": "AuthoritySignature",
     "Box<<T as Trait<I>>::Proposal>": "BoxProposal",
-    "&[u8]": "Bytes",
     "Forcing": {
       "type": "enum",
       "value_list": [

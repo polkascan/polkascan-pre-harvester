@@ -51,8 +51,9 @@ class PolkascanHarvesterService(BaseService):
 
     def __init__(self, db_session, type_registry='default'):
         self.db_session = db_session
-
-        RuntimeConfiguration().update_type_registry(load_type_registry(type_registry))
+        RuntimeConfiguration().update_type_registry(load_type_registry('default'))
+        if type_registry != 'default':
+            RuntimeConfiguration().update_type_registry(load_type_registry(type_registry))
         self.metadata_store = {}
 
     def process_genesis(self, block):

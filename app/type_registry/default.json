@@ -1,5 +1,78 @@
 {
   "default": {
-    "Keys": "SessionKeysSubstrate"
+    "SessionIndex": "U32",
+    "AuctionIndex": "U32",
+    "AuthIndex": "U32",
+    "BalanceUpload": "(AccountId, u64)",
+    "EgressQueueRoot": "(ParaId, Hash)",
+    "EventIndex": "u32",
+    "LeasePeriodOf": "LeasePeriod",
+    "LeasePeriod": "BlockNumber",
+    "MemberCount": "u32",
+    "MomentOf": "Moment",
+    "Offender": "(ValidatorId, Exposure)",
+    "ReportIdOf": "Hash",
+    "SubId": "u32",
+    "Weight": "u32",
+    "WeightMultiplier": "u64",
+    "WinningData": "Vec<WinningDataEntry>",
+    "Index": "U32",
+    "Box<<T as Trait<I>>::Proposal>": "BoxProposal",
+    "&[u8]": "Bytes",
+    "Forcing": {
+      "type": "enum",
+      "value_list": [
+        "NotForcing",
+        "ForceNew",
+        "ForceNone"
+      ]
+    },
+    "Heartbeat": {
+      "type": "struct",
+      "type_mapping": [
+         ["blockNumber", "BlockNumber"],
+         ["networkState", "OpaqueNetworkState"],
+         ["sessionIndex", "SessionIndex"],
+         ["authorityId", "AuthorityId"]
+      ]
+    },
+    "RewardDestination": {
+      "type": "enum",
+      "value_list": [
+        "Staked",
+        "Stash",
+        "Controller"
+      ]
+    },
+    "ConsensusEngineId": "[u8; 4]",
+    "DigestItem": {
+      "type": "enum",
+      "type_mapping": [
+        ["Other", "Vec<u8>"],
+        ["AuthoritiesChange", "Vec<AuthorityId>"],
+        ["ChangesTrieRoot", "Hash"],
+        ["SealV0", "SealV0"],
+        ["Consensus", "Consensus"],
+        ["Seal", "Seal"],
+        ["PreRuntime", "PreRuntime"]
+      ]
+    },
+    "Digest": {
+      "type": "struct",
+      "type_mapping": [
+        ["logs", "Vec<DigestItem<Hash>>"]
+      ]
+    },
+    "Keys": "SessionKeysSubstrate",
+    "Header": {
+      "type": "struct",
+      "type_mapping": [
+        ["parent_hash", "H256"],
+        ["number", "Compact<BlockNumber>"],
+        ["state_root", "H256"],
+        ["extrinsics_root", "H256"],
+        ["digest", "Digest"]
+      ]
+    }
   }
 }
