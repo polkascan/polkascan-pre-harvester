@@ -1,5 +1,9 @@
 {
   "default": {
+    "FullIdentification": "Exposure",
+    "IdentificationTuple": "(ValidatorId, FullIdentification)",
+    "SetId": "U64",
+    "RoundNumber": "U64",
     "SessionIndex": "U32",
     "AuctionIndex": "U32",
     "AuthIndex": "U32",
@@ -17,7 +21,10 @@
     "WeightMultiplier": "u64",
     "WinningData": "Vec<WinningDataEntry>",
     "Index": "U32",
+    "Kind": "[u8; 16]",
+    "OpaqueTimeSlot": "Bytes",
     "Box<<T as Trait<I>>::Proposal>": "BoxProposal",
+    "<AuthorityId as RuntimeAppPublic>::Signature": "AuthoritySignature",
     "&[u8]": "Bytes",
     "Forcing": {
       "type": "enum",
@@ -63,6 +70,7 @@
         ["logs", "Vec<DigestItem<Hash>>"]
       ]
     },
+    "DigestOf": "Digest",
     "Keys": "SessionKeysSubstrate",
     "Header": {
       "type": "struct",

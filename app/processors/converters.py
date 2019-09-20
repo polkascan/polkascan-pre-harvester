@@ -152,8 +152,13 @@ class PolkascanHarvesterService(BaseService):
                 decoder_obj = ScaleDecoder.get_decoder_class(type_string, ScaleBytes('0x00'))
 
                 if decoder_obj.sub_type:
+
                     # Also process sub type
-                    self.process_metadata_type(decoder_obj.sub_type, spec_version)
+                    if ',' in decoder_obj.sub_type and decoder_obj.sub_type[-1:] not in ['>', ')']:
+                        for sub_type in decoder_obj.sub_type.split(','):
+                            self.process_metadata_type(sub_type.strip(), spec_version)
+                    else:
+                        self.process_metadata_type(decoder_obj.sub_type, spec_version)
 
                 decoder_class_name = decoder_obj.__class__.__name__
 
