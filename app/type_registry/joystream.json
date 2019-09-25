@@ -1,6 +1,7 @@
 {
   "default": {
     "ValidatorPrefs": "ValidatorPrefsLegacy",
+    "Index": "U64",
     "<T as DDTrait>::ContentId": "ContentId",
     "RoleParameters": {
       "type": "struct",
