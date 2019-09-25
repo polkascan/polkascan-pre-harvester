@@ -2,6 +2,7 @@
   "default": {
     "EpochDuration": "u64",
     "EraIndex": "u32",
+    "Index": "U64",
     "RingBalanceOf": "u128",
     "KtonBalanceOf": "u128",
     "ExtendedBalance": "u128",
