@@ -81,6 +81,13 @@
         ["extrinsics_root", "H256"],
         ["digest", "Digest"]
       ]
+    },
+    "DispatchError": {
+      "type": "struct",
+      "type_mapping": [
+        ["module", "Option<u8>"],
+        ["error", "u8"]
+      ]
     }
   }
 }
