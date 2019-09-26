@@ -1,0 +1,6 @@
+{
+  "default": {
+    "Keys": "SessionKeysSubstrate",
+    "Index": "U64"
+  }
+}
