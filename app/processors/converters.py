@@ -809,9 +809,15 @@ class PolkascanHarvesterService(BaseService):
         integrity_head = Status.get_status(self.db_session, 'INTEGRITY_HEAD')
 
         if not integrity_head.value:
-            integrity_head.value = 0
+            # Only continue if block #1 exists
+            if Block.query(self.db_session).filter_by(id=1).count() == 0:
+                return {'integrity_head': None, 'error': 'Chain not at genesis'}
 
-        start_block_id = max(int(integrity_head.value) - 1, 0)
+            integrity_head.value = 0
+        else:
+            integrity_head.value = int(integrity_head.value)
+
+        start_block_id = max(integrity_head.value - 1, 0)
         end_block_id = finalized_block_number
         chunk_size = 1000
         parent_block = None
