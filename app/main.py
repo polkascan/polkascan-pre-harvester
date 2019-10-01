@@ -30,7 +30,7 @@ from app.middleware.sessionmanager import SQLAlchemySessionManager
 
 from app.resources.harvester import PolkascanStartHarvesterResource, PolkascanStopHarvesterResource, \
     PolkascanStatusHarvesterResource, PolkascanProcessBlockResource, \
-    PolkaScanCheckHarvesterTaskResource, SequenceBlockResource
+    PolkaScanCheckHarvesterTaskResource, SequenceBlockResource, StartSequenceBlockResource
 from app.resources.tools import ExtractMetadataResource, ExtractExtrinsicsResource, \
     HealthCheckResource, ExtractEventsResource
 
@@ -49,6 +49,7 @@ app.add_route('/stop', PolkascanStopHarvesterResource())
 app.add_route('/status', PolkascanStatusHarvesterResource())
 app.add_route('/process', PolkascanProcessBlockResource())
 app.add_route('/sequence', SequenceBlockResource())
+app.add_route('/sequencer/start', StartSequenceBlockResource())
 app.add_route('/task/result/{task_id}', PolkaScanCheckHarvesterTaskResource())
 
 app.add_route('/tools/metadata/extract', ExtractMetadataResource())

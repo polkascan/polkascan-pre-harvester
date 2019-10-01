@@ -22,9 +22,27 @@ from app.models.base import BaseModel
 import sqlalchemy as sa
 
 
-# class Status(BaseModel):
-#     __tablename__ = 'harvester_status'
-#     phase = sa.Column(sa.String(16), primary_key=True)
-#     first_block = sa.Column(sa.Integer())
-#     last_block = sa.Column(sa.Integer())
+class Status(BaseModel):
+    __tablename__ = 'harvester_status'
+    key = sa.Column(sa.String(64), primary_key=True)
+    value = sa.Column(sa.String(255))
+    last_modified = sa.Column(sa.DateTime(timezone=True))
+    notes = sa.Column(sa.String(255))
 
+    @classmethod
+    def get_status(cls, session, key):
+        model = session.query(cls).filter_by(key=key).first()
+
+        if not model:
+            return Status(
+                key=key
+            )
+
+        return model
+
+
+class Setting(BaseModel):
+    __tablename__ = 'harvester_setting'
+    key = sa.Column(sa.String(64), primary_key=True)
+    value = sa.Column(sa.String(255))
+    notes = sa.Column(sa.String(255))

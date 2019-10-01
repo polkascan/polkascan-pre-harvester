@@ -22,6 +22,7 @@ import os
 from time import sleep
 
 import celery
+from celery.result import AsyncResult
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
@@ -29,6 +30,7 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.sql import func
 
 from app.models.data import Extrinsic, Block, BlockTotal
+from app.models.harvester import Status
 from app.processors.converters import PolkascanHarvesterService, HarvesterCouldNotAddBlock, BlockAlreadyAdded
 from substrateinterface import SubstrateInterface
 
@@ -123,7 +125,6 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
 
     except BlockAlreadyAdded as e:
         print('. Skipped {} '.format(block_hash))
-        start_sequencer.delay()
     except IntegrityError as e:
         print('. Skipped duplicate {} '.format(block_hash))
     except Exception as exc:
@@ -139,19 +140,29 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
 
 @app.task(base=BaseTask, bind=True)
 def start_sequencer(self):
-    # Start sequencer
-    max_sequenced_block_id = self.session.query(func.max(BlockTotal.id)).one()[0]
-    if max_sequenced_block_id is not None:
-        sequencer_parent_block = BlockTotal.query(self.session).filter_by(id=max_sequenced_block_id).first()
-        parent_block = Block.query(self.session).filter_by(id=max_sequenced_block_id).first()
+    sequencer_task = Status.get_status(self.session, 'SEQUENCER_TASK_ID')
 
-        sequence_block_recursive.delay(
-            parent_block_data=parent_block.asdict(),
-            parent_sequenced_block_data=sequencer_parent_block.asdict()
-        )
+    if sequencer_task.value:
+        task_result = AsyncResult(sequencer_task.value)
+        if not task_result or task_result.ready():
+            sequencer_task.value = None
+            sequencer_task.save(self.session)
 
+    if sequencer_task.value is None:
+        sequencer_task.value = self.request.id
+        sequencer_task.save(self.session)
+
+        harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+        result = harvester.start_sequencer()
+
+        sequencer_task.value = None
+        sequencer_task.save(self.session)
+
+        self.session.commit()
+
+        return result
     else:
-        sequence_block_recursive.delay(parent_block_data=None)
+        return {'result': 'Sequencer already running'}
 
 
 @app.task(base=BaseTask, bind=True)
@@ -179,8 +190,8 @@ def start_harvester(self, check_gaps=False):
                 'end_block_hash': end_block_hash
             })
 
-        # Start sequencer
-        start_sequencer.delay()
+    # Start sequencer
+    sequencer_task = start_sequencer.delay()
 
     # Continue from current finalised head
 
@@ -196,52 +207,6 @@ def start_harvester(self, check_gaps=False):
 
     return {
         'result': 'Harvester job started',
-        'block_sets': block_sets
+        'block_sets': block_sets,
+        'sequencer_task_id': sequencer_task.task_id
     }
-
-
-@app.task(base=BaseTask, bind=True)
-def sequence_block_recursive(self, parent_block_data, parent_sequenced_block_data=None):
-
-    harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
-    harvester.metadata_store = self.metadata_store
-    for nr in range(0, 10):
-        if not parent_sequenced_block_data:
-            # No block ever sequenced, check if chain is at genesis state
-
-            block = Block.query(self.session).order_by('id').first()
-
-            if block.id == 1:
-                # Add genesis block
-                block = harvester.add_block(block.parent_hash)
-
-            if block.id != 0:
-                return {'error': 'Chain not at genesis'}
-
-            harvester.process_genesis(block)
-            block_id = 0
-        else:
-            block_id = parent_sequenced_block_data['id'] + 1
-
-            block = Block.query(self.session).get(block_id)
-
-        if block:
-            try:
-                sequenced_block = harvester.sequence_block(block, parent_block_data, parent_sequenced_block_data)
-                self.session.commit()
-
-                parent_block_data = block.asdict()
-                parent_sequenced_block_data = sequenced_block.asdict()
-
-                if nr == 9 or not sequenced_block:
-
-                    if sequenced_block:
-                        if nr == 9:
-                            sequence_block_recursive.delay(parent_block_data, parent_sequenced_block_data)
-
-                    return {'processedBlockId': block.id, 'amount': nr + 1}
-
-            except IntegrityError as e:
-                return {'error': 'Sequencer already started', 'exception': str(e)}
-        else:
-            return {'error': 'Block {} not found'.format(block_id)}

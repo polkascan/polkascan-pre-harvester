@@ -368,6 +368,10 @@ class NewAccountEventProcessor(EventProcessor):
 
             account_audit.save(db_session)
 
+    def accumulation_revert(self, db_session):
+        for item in AccountAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
 
 class ReapedAccount(EventProcessor):
     module_id = 'balances'
@@ -405,6 +409,14 @@ class ReapedAccount(EventProcessor):
 
             new_account_index_audit.save(db_session)
 
+    def accumulation_revert(self, db_session):
+
+        for item in AccountIndexAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
+        for item in AccountAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
 
 class NewAccountIndexEventProcessor(EventProcessor):
 
@@ -426,6 +438,10 @@ class NewAccountIndexEventProcessor(EventProcessor):
         )
 
         account_index_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in AccountIndexAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
 
 
 class ProposedEventProcessor(EventProcessor):
@@ -455,6 +471,10 @@ class ProposedEventProcessor(EventProcessor):
 
             proposal_audit.save(db_session)
 
+    def accumulation_revert(self, db_session):
+        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
 
 class DemocracyTabledEventProcessor(EventProcessor):
 
@@ -479,6 +499,10 @@ class DemocracyTabledEventProcessor(EventProcessor):
             proposal_audit.data = self.event.attributes
 
             proposal_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
 
 
 class DemocracyStartedProcessor(EventProcessor):
@@ -525,6 +549,10 @@ class DemocracyStartedProcessor(EventProcessor):
 
             referendum_audit.save(db_session)
 
+    def accumulation_revert(self, db_session):
+        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
 
 class DemocracyPassedProcessor(EventProcessor):
 
@@ -546,6 +574,10 @@ class DemocracyPassedProcessor(EventProcessor):
             )
 
             referendum_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
 
 
 class DemocracyNotPassedProcessor(EventProcessor):
@@ -569,6 +601,10 @@ class DemocracyNotPassedProcessor(EventProcessor):
 
             referendum_audit.save(db_session)
 
+    def accumulation_revert(self, db_session):
+        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
 
 class DemocracyCancelledProcessor(EventProcessor):
 
@@ -590,6 +626,10 @@ class DemocracyCancelledProcessor(EventProcessor):
             )
 
             referendum_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
 
 
 class DemocracyExecutedProcessor(EventProcessor):
@@ -615,6 +655,10 @@ class DemocracyExecutedProcessor(EventProcessor):
 
             referendum_audit.save(db_session)
 
+    def accumulation_revert(self, db_session):
+        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
 
 class CodeStoredEventProcessor(EventProcessor):
 
@@ -637,3 +681,7 @@ class CodeStoredEventProcessor(EventProcessor):
                 contract.bytecode = param.get('value')
 
         contract.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in Contract.query(db_session).filter_by(created_at_block=self.block.id):
+            db_session.delete(item)

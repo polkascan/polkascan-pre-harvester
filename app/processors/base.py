@@ -92,6 +92,16 @@ class Processor(object):
         """
         pass
 
+    def accumulation_revert(self, db_session):
+        """
+        Revert hook during accumulation phase when block was not on correct chain, e.g. fork or uncle, which means
+        processing on an isolated block level; no context outside the current block is available
+        :param db_session:
+        :type db_session: sqlalchemy.orm.Session
+        :return:
+        """
+        pass
+
     def sequencing_hook(self, db_session, parent_block, parent_sequenced_block):
         """
         Hook during sequencing phase, which means processing block for block from genesis to chaintip where this order

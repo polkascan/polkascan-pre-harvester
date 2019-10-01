@@ -58,6 +58,10 @@ class LogBlockProcessor(BlockProcessor):
 
             log.save(db_session)
 
+    def accumulation_revert(self, db_session):
+        for item in Log.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
 
 class BlockTotalProcessor(BlockProcessor):
 

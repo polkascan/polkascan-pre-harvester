@@ -576,3 +576,137 @@ class RuntimeType(BaseModel):
     spec_version = sa.Column(sa.Integer(), nullable=False)
     type_string = sa.Column(sa.String(255))
     decoder_class = sa.Column(sa.String(255), nullable=True)
+
+
+class ReorgBlock(BaseModel):
+    __tablename__ = 'data_reorg_block'
+
+    serialize_exclude = ['debug_info']
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    parent_id = sa.Column(sa.Integer(), nullable=False)
+    hash = sa.Column(sa.String(66), unique=True, index=True, nullable=False)
+    parent_hash = sa.Column(sa.String(66), index=True, nullable=False)
+    state_root = sa.Column(sa.String(66), nullable=False)
+    extrinsics_root = sa.Column(sa.String(66), nullable=False)
+    count_extrinsics = sa.Column(sa.Integer(), nullable=False)
+    count_extrinsics_unsigned = sa.Column(sa.Integer(), nullable=False)
+    count_extrinsics_signed = sa.Column(sa.Integer(), nullable=False)
+    count_extrinsics_error = sa.Column(sa.Integer(), nullable=False)
+    count_extrinsics_success = sa.Column(sa.Integer(), nullable=False)
+    count_extrinsics_signedby_address = sa.Column(sa.Integer(), nullable=False)
+    count_extrinsics_signedby_index = sa.Column(sa.Integer(), nullable=False)
+    count_events = sa.Column(sa.Integer(), nullable=False)
+    count_events_system = sa.Column(sa.Integer(), nullable=False)
+    count_events_module = sa.Column(sa.Integer(), nullable=False)
+    count_events_extrinsic = sa.Column(sa.Integer(), nullable=False)
+    count_events_finalization = sa.Column(sa.Integer(), nullable=False)
+    count_accounts = sa.Column(sa.Integer(), nullable=False)
+    count_accounts_new = sa.Column(sa.Integer(), nullable=False)
+    count_accounts_reaped = sa.Column(sa.Integer(), nullable=False)
+    count_sessions_new = sa.Column(sa.Integer(), nullable=False)
+    count_contracts_new = sa.Column(sa.Integer(), nullable=False)
+    count_log = sa.Column(sa.Integer(), nullable=False)
+    range10000 = sa.Column(sa.Integer(), nullable=False)
+    range100000 = sa.Column(sa.Integer(), nullable=False)
+    range1000000 = sa.Column(sa.Integer(), nullable=False)
+    datetime = sa.Column(sa.DateTime(timezone=True))
+    year = sa.Column(sa.Integer(), nullable=True)
+    month = sa.Column(sa.Integer(), nullable=True)
+    week = sa.Column(sa.Integer(), nullable=True)
+    day = sa.Column(sa.Integer(), nullable=True)
+    hour = sa.Column(sa.Integer(), nullable=True)
+    full_month = sa.Column(sa.Integer(), nullable=True)
+    full_week = sa.Column(sa.Integer(), nullable=True)
+    full_day = sa.Column(sa.Integer(), nullable=True)
+    full_hour = sa.Column(sa.Integer(), nullable=True)
+    logs = sa.Column(sa.JSON(), default=None, server_default=None)
+    spec_version_id = sa.Column(sa.String(64), nullable=False)
+    debug_info = sa.Column(sa.JSON(), default=None, server_default=None)
+
+
+class ReorgEvent(BaseModel):
+    __tablename__ = 'data_reorg_event'
+
+    block_hash = sa.Column(sa.String(66), primary_key=True, index=True, nullable=False)
+    block_id = sa.Column(sa.Integer(), index=True)
+    block = relationship(Block, foreign_keys=[block_id], primaryjoin=block_id == Block.id)
+
+    event_idx = sa.Column(sa.Integer(), primary_key=True, index=True)
+
+    extrinsic_idx = sa.Column(sa.Integer(), index=True)
+
+    type = sa.Column(sa.String(4), index=True)
+
+    spec_version_id = sa.Column(sa.Integer())
+
+    module_id = sa.Column(sa.String(64), index=True)
+    event_id = sa.Column(sa.String(64), index=True)
+
+    system = sa.Column(sa.SmallInteger(), index=True, nullable=False)
+    module = sa.Column(sa.SmallInteger(), index=True, nullable=False)
+    phase = sa.Column(sa.SmallInteger())
+
+    attributes = sa.Column(sa.JSON())
+
+    codec_error = sa.Column(sa.Boolean())
+
+    def serialize_id(self):
+        return '{}-{}'.format(self.block_id, self.event_idx)
+
+
+class ReorgExtrinsic(BaseModel):
+    __tablename__ = 'data_reorg_extrinsic'
+
+    block_hash = sa.Column(sa.String(66), primary_key=True, index=True, nullable=False)
+    block_id = sa.Column(sa.Integer(), index=True)
+    block = relationship(Block, foreign_keys=[block_id], primaryjoin=block_id == Block.id)
+
+    extrinsic_idx = sa.Column(sa.Integer(), primary_key=True, index=True)
+    extrinsic_hash = sa.Column(sa.String(64), index=True, nullable=True)
+
+    extrinsic_length = sa.Column(sa.String(10))
+    extrinsic_version = sa.Column(sa.String(2))
+
+    signed = sa.Column(sa.SmallInteger(), index=True, nullable=False)
+    unsigned = sa.Column(sa.SmallInteger(), index=True, nullable=False)
+    signedby_address = sa.Column(sa.SmallInteger(), nullable=False)
+    signedby_index = sa.Column(sa.SmallInteger(), nullable=False)
+
+    address_length = sa.Column(sa.String(2))
+    address = sa.Column(sa.String(64), index=True)
+    account_index = sa.Column(sa.String(16), index=True)
+    account_idx = sa.Column(sa.Integer(), index=True)
+    signature = sa.Column(sa.String(128))
+    nonce = sa.Column(sa.Integer())
+
+    era = sa.Column(sa.String(4))
+
+    call = sa.Column(sa.String(4))
+    module_id = sa.Column(sa.String(64), index=True)
+    call_id = sa.Column(sa.String(64), index=True)
+    params = sa.Column(sa.JSON())
+
+    success = sa.Column(sa.SmallInteger(), default=0, nullable=False)
+    error = sa.Column(sa.SmallInteger(), default=0, nullable=False)
+
+    spec_version_id = sa.Column(sa.Integer())
+
+    codec_error = sa.Column(sa.Boolean(), default=False)
+
+    def serialize_id(self):
+        return '{}-{}'.format(self.block_id, self.extrinsic_idx)
+
+
+class ReorgLog(BaseModel):
+    __tablename__ = 'data_reorg_log'
+
+    block_hash = sa.Column(sa.String(66), primary_key=True, index=True, nullable=False)
+    block_id = sa.Column(sa.Integer(), autoincrement=False)
+    log_idx = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    type_id = sa.Column(sa.Integer(), index=True)
+    type = sa.Column(sa.String(64))
+    data = sa.Column(sa.JSON())
+
+    def serialize_id(self):
+        return '{}-{}'.format(self.block_id, self.log_idx)

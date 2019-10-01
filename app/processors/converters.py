@@ -19,9 +19,11 @@
 #  converters.py
 import math
 
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.processors import NewSessionEventProcessor
+from app.models.harvester import Status
+from app.processors import NewSessionEventProcessor, Log
 from app.type_registry import load_type_registry
 from scalecodec import U32
 from scalecodec.base import ScaleBytes, ScaleDecoder, RuntimeConfiguration
@@ -36,7 +38,7 @@ from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW, ACCOU
     SUBSTRATE_MOCK_EXTRINSICS
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
-    AccountIndexAudit
+    AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -714,6 +716,37 @@ class PolkascanHarvesterService(BaseService):
 
         return block
 
+    def remove_block(self, block_hash):
+        # Retrieve block
+        block = Block.query(self.db_session).filter_by(hash=block_hash).first()
+
+        # Revert event processors
+        for event in Event.query(self.db_session).filter_by(block_id=block.id):
+            for processor_class in ProcessorRegistry().get_event_processors(event.module_id, event.event_id):
+                event_processor = processor_class(block, event, None)
+                event_processor.accumulation_revert(self.db_session)
+
+        # Revert extrinsic processors
+        for extrinsic in Extrinsic.query(self.db_session).filter_by(block_id=block.id):
+            for processor_class in ProcessorRegistry().get_extrinsic_processors(extrinsic.module_id, extrinsic.call_id):
+                extrinsic_processor = processor_class(block, extrinsic)
+                extrinsic_processor.accumulation_revert(self.db_session)
+
+        # Revert block processors
+        for processor_class in ProcessorRegistry().get_block_processors():
+            block_processor = processor_class(block)
+            block_processor.accumulation_revert(self.db_session)
+
+        # Delete events
+        for item in Event.query(self.db_session).filter_by(block_id=block.id):
+            self.db_session.delete(item)
+        # Delete extrinsics
+        for item in Extrinsic.query(self.db_session).filter_by(block_id=block.id):
+            self.db_session.delete(item)
+
+        # Delete block
+        self.db_session.delete(block)
+
     def sequence_block(self, block, parent_block_data=None, parent_sequenced_block_data=None):
 
         sequenced_block = BlockTotal(
@@ -764,3 +797,146 @@ class PolkascanHarvesterService(BaseService):
         sequenced_block.save(self.db_session)
 
         return sequenced_block
+
+    def integrity_checks(self):
+
+        # 1. Check finalized head
+        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+        finalized_block_hash = substrate.get_chain_finalised_head()
+        finalized_block_number = substrate.get_block_number(finalized_block_hash)
+
+        # 2. Check integrity head
+        integrity_head = Status.get_status(self.db_session, 'INTEGRITY_HEAD')
+
+        if not integrity_head.value:
+            integrity_head.value = 0
+
+        start_block_id = max(int(integrity_head.value) - 1, 0)
+        end_block_id = finalized_block_number
+        chunk_size = 1000
+        parent_block = None
+
+        if start_block_id < end_block_id:
+            # Continue integrity check
+
+            # print('== Start integrity checks from {} to {} =='.format(start_block_id, end_block_id))
+
+            for block_nr in range(start_block_id, end_block_id, chunk_size):
+                block_range = Block.query(self.db_session).order_by('id')[block_nr:block_nr + chunk_size]
+                for block in block_range:
+                    if parent_block:
+                        if block.id != parent_block.id + 1:
+                            print('Block #{} is missing.. stopping check '.format(parent_block.id + 1))
+
+                            # Save integrity head if block hash of parent matches with hash in node
+                            if parent_block.hash == substrate.get_block_hash(integrity_head.value):
+                                integrity_head.save(self.db_session)
+                            return {'integrity_head': integrity_head.value}
+                        elif block.parent_hash != parent_block.hash:
+                            print('Block #{} failed integrity checks, Re-adding.. '.format(parent_block.id))
+                            self.process_reorg_block(parent_block)
+                            self.remove_block(parent_block.hash)
+                            self.add_block(substrate.get_block_hash(parent_block.id))
+
+                            integrity_head.value = parent_block.id - 1
+
+                            # Save integrity head if block hash of parent matches with hash in node
+                            if parent_block.parent_hash == substrate.get_block_hash(integrity_head.value):
+                                integrity_head.save(self.db_session)
+                            return {'integrity_head': integrity_head.value}
+                        else:
+                            integrity_head.value = block.id
+
+                    parent_block = block
+
+                    if block.id == end_block_id:
+                        break
+
+            if parent_block:
+                if parent_block.hash == substrate.get_block_hash(int(integrity_head.value)):
+                    integrity_head.save(self.db_session)
+                self.db_session.commit()
+
+        return {'integrity_head': integrity_head.value}
+
+    def start_sequencer(self):
+        integrity_status = self.integrity_checks()
+        block_nr = None
+
+        integrity_head = Status.get_status(self.db_session, 'INTEGRITY_HEAD')
+
+        if not integrity_head.value:
+            integrity_head.value = 0
+
+        # 3. Check sequence head
+        sequencer_head = self.db_session.query(func.max(BlockTotal.id)).one()[0]
+
+        if sequencer_head is None:
+            sequencer_head = -1
+
+        # Start sequencing process
+
+        sequencer_parent_block = BlockTotal.query(self.db_session).filter_by(id=sequencer_head).first()
+        parent_block = Block.query(self.db_session).filter_by(id=sequencer_head).first()
+
+        for block_nr in range(sequencer_head + 1, int(integrity_head.value) + 1):
+
+            if block_nr == 0:
+                # No block ever sequenced, check if chain is at genesis state
+                assert (not sequencer_parent_block)
+
+                block = Block.query(self.db_session).order_by('id').first()
+
+                if not block:
+                    self.db_session.commit()
+                    return {'error': 'Chain not at genesis'}
+
+                if block.id == 1:
+                    # Add genesis block
+                    block = self.add_block(block.parent_hash)
+
+                if block.id != 0:
+                    self.db_session.commit()
+                    return {'error': 'Chain not at genesis'}
+
+                self.process_genesis(block)
+
+                sequencer_parent_block_data = None
+                parent_block_data = None
+            else:
+                block_id = sequencer_parent_block.id + 1
+
+                assert (block_id == block_nr)
+
+                block = Block.query(self.db_session).get(block_nr)
+
+                sequencer_parent_block_data = sequencer_parent_block.asdict()
+                parent_block_data = parent_block.asdict()
+
+            sequenced_block = self.sequence_block(block, parent_block_data, sequencer_parent_block_data)
+            self.db_session.commit()
+
+            parent_block = block
+            sequencer_parent_block = sequenced_block
+
+        if block_nr:
+            return {'result': 'finished at #{}'.format(block_nr)}
+        else:
+            return {'result': 'Nothing to sequence'}
+
+    def process_reorg_block(self, block):
+        model = ReorgBlock(**block.asdict())
+        model.save(self.db_session)
+
+        for extrinsic in Extrinsic.query(self.db_session).filter_by(block_id=block.id):
+            model = ReorgExtrinsic(block_hash=block.hash, **extrinsic.asdict())
+            model.save(self.db_session)
+
+        for event in Event.query(self.db_session).filter_by(block_id=block.id):
+            model = ReorgEvent(block_hash=block.hash, **event.asdict())
+            model.save(self.db_session)
+
+        for log in Log.query(self.db_session).filter_by(block_id=block.id):
+            model = ReorgLog(block_hash=block.hash, **log.asdict())
+            model.save(self.db_session)
+

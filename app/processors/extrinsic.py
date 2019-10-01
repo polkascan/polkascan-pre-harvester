@@ -98,7 +98,9 @@ class DemocracyVoteExtrinsicProcessor(ExtrinsicProcessor):
                     vote_audit.data['vote_yes_weighted'] = int(vote_audit.data['vote_yes']) * vote_audit.data['stash']
                     vote_audit.data['vote_no_weighted'] = int(vote_audit.data['vote_no']) * vote_audit.data['stash']
 
-
-
-
             vote_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in DemocracyVoteAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+

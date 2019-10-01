@@ -24,9 +24,10 @@ import uuid
 import falcon
 from celery.result import AsyncResult
 from falcon.media.validators.jsonschema import validate
-from sqlalchemy import text
+from sqlalchemy import text, func
 
 from app.models.data import Block, BlockTotal
+from app.models.harvester import Setting, Status
 from app.resources.base import BaseResource
 from app.schemas import load_schema
 from app.processors.converters import PolkascanHarvesterService, BlockAlreadyAdded
@@ -205,3 +206,36 @@ class SequenceBlockResource(BaseResource):
             resp.status = falcon.HTTP_404
             resp.media = {'result': 'Block not found'}
 
+
+class StartSequenceBlockResource(BaseResource):
+
+    def on_post(self, req, resp):
+
+        sequencer_task = Status.get_status(self.session, 'SEQUENCER_TASK_ID')
+
+        if sequencer_task.value is None:
+            # 3. IF NOT RUNNING: set task id is status table
+            sequencer_task.value = "123"
+            sequencer_task.save(self.session)
+
+            harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+            result = harvester.start_sequencer()
+
+            sequencer_task.value = None
+            sequencer_task.save(self.session)
+
+        # 4. IF RUNNING: check if task id is active
+        else:
+
+            # task_result = AsyncResult(sequencer_task)
+            # task_result = {'status': task_result.status, 'result': task_result.result}
+            sequencer_task.value = None
+            sequencer_task.save(self.session)
+
+            result = 'Busy'
+
+        self.session.commit()
+
+        resp.media = {
+            'result': result
+        }
