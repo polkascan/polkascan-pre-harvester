@@ -35,7 +35,7 @@ from app.processors.base import BaseService, ProcessorRegistry
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
-    SUBSTRATE_MOCK_EXTRINSICS
+    SUBSTRATE_MOCK_EXTRINSICS, FINALIZATION_BY_BLOCK_CONFIRMATIONS
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
     AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog
@@ -802,8 +802,15 @@ class PolkascanHarvesterService(BaseService):
 
         # 1. Check finalized head
         substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
-        finalized_block_hash = substrate.get_chain_finalised_head()
-        finalized_block_number = substrate.get_block_number(finalized_block_hash)
+
+        if FINALIZATION_BY_BLOCK_CONFIRMATIONS > 0:
+            finalized_block_hash = substrate.get_chain_head()
+            finalized_block_number = max(
+                substrate.get_block_number(finalized_block_hash) - FINALIZATION_BY_BLOCK_CONFIRMATIONS, 0
+            )
+        else:
+            finalized_block_hash = substrate.get_chain_finalised_head()
+            finalized_block_number = substrate.get_block_number(finalized_block_hash)
 
         # 2. Check integrity head
         integrity_head = Status.get_status(self.db_session, 'INTEGRITY_HEAD')

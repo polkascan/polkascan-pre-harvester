@@ -40,6 +40,8 @@ SUBSTRATE_MOCK_EXTRINSICS = os.environ.get("SUBSTRATE_MOCK_EXTRINSICS", None)
 
 TYPE_REGISTRY = os.environ.get("TYPE_REGISTRY", "default")
 
+FINALIZATION_BY_BLOCK_CONFIRMATIONS = int(os.environ.get("FINALIZATION_BY_BLOCK_CONFIRMATIONS", 0))
+
 DEBUG = bool(os.environ.get("DEBUG", False))
 
 # Version compatibility switches
