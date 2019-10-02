@@ -583,9 +583,9 @@ class ReorgBlock(BaseModel):
 
     serialize_exclude = ['debug_info']
 
-    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    hash = sa.Column(sa.String(66), primary_key=True, index=True, nullable=False)
+    id = sa.Column(sa.Integer(), index=True, autoincrement=False)
     parent_id = sa.Column(sa.Integer(), nullable=False)
-    hash = sa.Column(sa.String(66), unique=True, index=True, nullable=False)
     parent_hash = sa.Column(sa.String(66), index=True, nullable=False)
     state_root = sa.Column(sa.String(66), nullable=False)
     extrinsics_root = sa.Column(sa.String(66), nullable=False)
