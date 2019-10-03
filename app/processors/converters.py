@@ -835,6 +835,7 @@ class PolkascanHarvesterService(BaseService):
             # print('== Start integrity checks from {} to {} =='.format(start_block_id, end_block_id))
 
             for block_nr in range(start_block_id, end_block_id, chunk_size):
+                # TODO replace limit with filter_by block range
                 block_range = Block.query(self.db_session).order_by('id')[block_nr:block_nr + chunk_size]
                 for block in block_range:
                     if parent_block:
@@ -844,18 +845,28 @@ class PolkascanHarvesterService(BaseService):
                             # Save integrity head if block hash of parent matches with hash in node
                             if parent_block.hash == substrate.get_block_hash(integrity_head.value):
                                 integrity_head.save(self.db_session)
+                                self.db_session.commit()
                             return {'integrity_head': integrity_head.value}
                         elif block.parent_hash != parent_block.hash:
-                            print('Block #{} failed integrity checks, Re-adding.. '.format(parent_block.id))
+                            print('Block #{} failed integrity checks, Re-adding #{}.. '.format(parent_block.id, block.id))
+
                             self.process_reorg_block(parent_block)
+                            self.process_reorg_block(block)
+
+                            self.remove_block(block.hash)
                             self.remove_block(parent_block.hash)
+                            self.db_session.commit()
+
+                            self.add_block(substrate.get_block_hash(block.id))
                             self.add_block(substrate.get_block_hash(parent_block.id))
+                            self.db_session.commit()
 
                             integrity_head.value = parent_block.id - 1
 
                             # Save integrity head if block hash of parent matches with hash in node
-                            if parent_block.parent_hash == substrate.get_block_hash(integrity_head.value):
-                                integrity_head.save(self.db_session)
+                            #if parent_block.parent_hash == substrate.get_block_hash(integrity_head.value):
+                            integrity_head.save(self.db_session)
+                            self.db_session.commit()
                             return {'integrity_head': integrity_head.value}
                         else:
                             integrity_head.value = block.id
@@ -868,12 +879,14 @@ class PolkascanHarvesterService(BaseService):
             if parent_block:
                 if parent_block.hash == substrate.get_block_hash(int(integrity_head.value)):
                     integrity_head.save(self.db_session)
-                self.db_session.commit()
+                    self.db_session.commit()
 
         return {'integrity_head': integrity_head.value}
 
     def start_sequencer(self):
         integrity_status = self.integrity_checks()
+        self.db_session.commit()
+
         block_nr = None
 
         integrity_head = Status.get_status(self.db_session, 'INTEGRITY_HEAD')

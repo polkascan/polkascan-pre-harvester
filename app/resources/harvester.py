@@ -239,3 +239,14 @@ class StartSequenceBlockResource(BaseResource):
         resp.media = {
             'result': result
         }
+
+
+class StartIntegrityResource(BaseResource):
+
+    def on_post(self, req, resp):
+        harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+        result = harvester.integrity_checks()
+
+        resp.media = {
+            'result': result
+        }
