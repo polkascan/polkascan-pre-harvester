@@ -49,6 +49,10 @@ class BlockAlreadyAdded(Exception):
     pass
 
 
+class BlockIntegrityError(Exception):
+    pass
+
+
 class PolkascanHarvesterService(BaseService):
 
     def __init__(self, db_session, type_registry='default'):
@@ -818,7 +822,7 @@ class PolkascanHarvesterService(BaseService):
         if not integrity_head.value:
             # Only continue if block #1 exists
             if Block.query(self.db_session).filter_by(id=1).count() == 0:
-                return {'integrity_head': None, 'error': 'Chain not at genesis'}
+                raise BlockIntegrityError('Chain not at genesis')
 
             integrity_head.value = 0
         else:
@@ -840,15 +844,14 @@ class PolkascanHarvesterService(BaseService):
                 for block in block_range:
                     if parent_block:
                         if block.id != parent_block.id + 1:
-                            print('Block #{} is missing.. stopping check '.format(parent_block.id + 1))
 
                             # Save integrity head if block hash of parent matches with hash in node
                             if parent_block.hash == substrate.get_block_hash(integrity_head.value):
                                 integrity_head.save(self.db_session)
                                 self.db_session.commit()
-                            return {'integrity_head': integrity_head.value}
+
+                            raise BlockIntegrityError('Block #{} is missing.. stopping check '.format(parent_block.id + 1))
                         elif block.parent_hash != parent_block.hash:
-                            print('Block #{} failed integrity checks, Re-adding #{}.. '.format(parent_block.id, block.id))
 
                             self.process_reorg_block(parent_block)
                             self.process_reorg_block(block)
@@ -867,7 +870,8 @@ class PolkascanHarvesterService(BaseService):
                             #if parent_block.parent_hash == substrate.get_block_hash(integrity_head.value):
                             integrity_head.save(self.db_session)
                             self.db_session.commit()
-                            return {'integrity_head': integrity_head.value}
+
+                            raise BlockIntegrityError('Block #{} failed integrity checks, Re-adding #{}.. '.format(parent_block.id, block.id))
                         else:
                             integrity_head.value = block.id
 
@@ -946,7 +950,7 @@ class PolkascanHarvesterService(BaseService):
             sequencer_parent_block = sequenced_block
 
         if block_nr:
-            return {'result': 'finished at #{}'.format(block_nr)}
+            return {'result': 'Finished at #{}'.format(block_nr)}
         else:
             return {'result': 'Nothing to sequence'}
 

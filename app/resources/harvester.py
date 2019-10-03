@@ -30,7 +30,7 @@ from app.models.data import Block, BlockTotal
 from app.models.harvester import Setting, Status
 from app.resources.base import BaseResource
 from app.schemas import load_schema
-from app.processors.converters import PolkascanHarvesterService, BlockAlreadyAdded
+from app.processors.converters import PolkascanHarvesterService, BlockAlreadyAdded, BlockIntegrityError
 from substrateinterface import SubstrateInterface
 from app.tasks import accumulate_block_recursive, start_harvester
 from app.settings import SUBSTRATE_RPC_URL, TYPE_REGISTRY
@@ -245,7 +245,10 @@ class StartIntegrityResource(BaseResource):
 
     def on_post(self, req, resp):
         harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
-        result = harvester.integrity_checks()
+        try:
+            result = harvester.integrity_checks()
+        except BlockIntegrityError as e:
+            result = str(e)
 
         resp.media = {
             'result': result

@@ -31,7 +31,8 @@ from sqlalchemy.sql import func
 
 from app.models.data import Extrinsic, Block, BlockTotal
 from app.models.harvester import Status
-from app.processors.converters import PolkascanHarvesterService, HarvesterCouldNotAddBlock, BlockAlreadyAdded
+from app.processors.converters import PolkascanHarvesterService, HarvesterCouldNotAddBlock, BlockAlreadyAdded, \
+    BlockIntegrityError
 from substrateinterface import SubstrateInterface
 
 from app.settings import DB_CONNECTION, DEBUG, SUBSTRATE_RPC_URL, TYPE_REGISTRY
@@ -153,7 +154,11 @@ def start_sequencer(self):
         sequencer_task.save(self.session)
 
         harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
-        result = harvester.start_sequencer()
+        try:
+            result = harvester.start_sequencer()
+        except BlockIntegrityError as e:
+            start_sequencer.delay()
+            result = {'result': str(e)}
 
         sequencer_task.value = None
         sequencer_task.save(self.session)
