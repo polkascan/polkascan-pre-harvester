@@ -568,6 +568,20 @@ class RuntimeConstant(BaseModel):
         return '{}-{}-{}'.format(self.spec_version, self.module_id, self.name)
 
 
+class RuntimeErrorMessage(BaseModel):
+    __tablename__ = 'runtime_error'
+
+    id = sa.Column(sa.Integer(), primary_key=True)
+    spec_version = sa.Column(sa.Integer())
+    module_id = sa.Column(sa.String(64))
+    index = sa.Column(sa.Integer())
+    name = sa.Column(sa.String(255), index=True)
+    documentation = sa.Column(sa.Text())
+
+    def serialize_id(self):
+        return '{}-{}-{}'.format(self.spec_version, self.module_id, self.name)
+
+
 class RuntimeType(BaseModel):
     __tablename__ = 'runtime_type'
     __table_args__ = (sa.UniqueConstraint('spec_version', 'type_string'),)

@@ -38,7 +38,7 @@ from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW, ACCOU
     SUBSTRATE_MOCK_EXTRINSICS, FINALIZATION_BY_BLOCK_CONFIRMATIONS
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
-    AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog
+    AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog, RuntimeErrorMessage
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -459,6 +459,17 @@ class PolkascanHarvesterService(BaseService):
 
                                     # Check if types already registered in database
                                     self.process_metadata_type(constant.type, spec_version)
+
+                            if len(module.errors or []) > 0:
+                                for idx, error in enumerate(module.errors):
+                                    runtime_error = RuntimeErrorMessage(
+                                        spec_version=spec_version,
+                                        module_id=module_id,
+                                        index=idx,
+                                        name=error.name,
+                                        documentation='\n'.join(error.docs)
+                                    )
+                                    runtime_error.save(self.db_session)
 
                         runtime.save(self.db_session)
 
