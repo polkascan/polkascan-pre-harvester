@@ -7,14 +7,14 @@
       "type": "struct",
       "type_mapping": [
          ["start", "u128"],
-         ["end", "u128"],
+         ["end", "u128"]
       ]
     },
     "StateObject": {
       "type": "struct",
       "type_mapping": [
          ["predicate", "AccountId"],
-         ["data", "Vec<u8>"],
+         ["data", "Vec<u8>"]
       ]
     },
     "StateUpdate": {
@@ -29,7 +29,7 @@
       "type": "struct",
       "type_mapping": [
          ["state_update", "StateUpdate"],
-         ["sub_range", "Range"],
+         ["sub_range", "Range"]
       ]
     },
     "Transaction": {
@@ -37,7 +37,7 @@
       "type_mapping": [
          ["predicate", "AccountId"],
          ["range", "Range"],
-         ["body", "Range"],
+         ["body", "Range"]
       ]
     },
     "TransactionBody": {
@@ -45,29 +45,29 @@
       "type_mapping": [
          ["new_state", "StateObject"],
          ["origin_block", "BlockNumber"],
-         ["max_block", "BlockNumber"],
+         ["max_block", "BlockNumber"]
       ]
     },
     "Challenge": {
       "type": "struct",
       "type_mapping": [
          ["challenged_checkpoint", "Checkpoint"],
-         ["challenging_checkpoint", "Checkpoint"],
+         ["challenging_checkpoint", "Checkpoint"]
       ]
     },
     "MerkleIntervalTreeInternalNode": {
       "type": "struct",
       "type_mapping": [
          ["index", "Index"],
-         ["hash", "Hash"],
+         ["hash", "Hash"]
       ]
     },
     "InclusionProof": {
       "type": "struct",
       "type_mapping": [
          ["proofs", "Vec<MerkleIntervalTreeInternalNode>"],
-         ["idx", "u128"],
+         ["idx", "u128"]
       ]
-    },
+    }
   }
 }
