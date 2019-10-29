@@ -22,7 +22,7 @@
       "type_mapping": [
          ["range", "Range"],
          ["state_object", "StateObject"],
-         ["plasma_block_number", "BlockNumber"],
+         ["plasma_block_number", "BlockNumber"]
       ]
     },
     "Checkpoint": {
