@@ -157,7 +157,6 @@ def start_sequencer(self):
         try:
             result = harvester.start_sequencer()
         except BlockIntegrityError as e:
-            start_sequencer.delay()
             result = {'result': str(e)}
 
         sequencer_task.value = None
