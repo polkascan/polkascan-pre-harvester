@@ -1,7 +1,20 @@
 {
   "default": {
-    "FullIdentification": "Exposure",
-    "IdentificationTuple": "(ValidatorId, FullIdentification)",
+    "FullIdentification": {
+      "type": "struct",
+      "type_mapping": [
+         ["total", "Compact<Balance>"],
+         ["own", "Compact<Balance>"],
+         ["others", "Vec<IndividualExposure>"]
+      ]
+    },
+    "IdentificationTuple": {
+      "type": "struct",
+      "type_mapping": [
+         ["validatorId", "ValidatorId"],
+         ["exposure", "FullIdentification"]
+      ]
+    },
     "SetId": "U64",
     "RoundNumber": "U64",
     "SessionIndex": "U32",
