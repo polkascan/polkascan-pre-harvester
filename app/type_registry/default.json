@@ -21,17 +21,36 @@
     "AuctionIndex": "U32",
     "AuthIndex": "U32",
     "BalanceUpload": "(AccountId, u64)",
+    "CollatorId": "H256",
     "EgressQueueRoot": "(ParaId, Hash)",
     "EventIndex": "u32",
-    "LeasePeriodOf": "LeasePeriod",
     "LeasePeriod": "BlockNumber",
+    "LeasePeriodOf": "LeasePeriod",
+    "MaybeVrf": "[u8; 32]",
     "MemberCount": "u32",
     "MomentOf": "Moment",
+    "MoreAttestations": "Null",
+    "Multiplier": "u64",
     "Offender": "(ValidatorId, Exposure)",
+    "ParaIdOf": "ParaId",
+    "ParaScheduling": {
+      "type": "enum",
+      "value_list": [
+        "Always",
+        "Dynamic"
+      ]
+    },
+    "ParaInfo": {
+      "type": "struct",
+      "type_mapping": [
+         ["scheduling", "ParaScheduling"]
+      ]
+    },
     "ReportIdOf": "Hash",
     "SubId": "u32",
     "Weight": "u32",
     "WeightMultiplier": "u64",
+    "WinningDataEntry": "(AccountId, ParaIdOf, BalanceOf)",
     "WinningData": "Vec<WinningDataEntry>",
     "Index": "U32",
     "Kind": "[u8; 16]",
