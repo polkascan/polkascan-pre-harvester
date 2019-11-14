@@ -317,7 +317,9 @@ class PolkascanHarvesterService(BaseService):
                                 name=module.name,
                                 count_call_functions=len(module.calls or []),
                                 count_storage_functions=len(storage_functions),
-                                count_events=len(module.events or [])
+                                count_events=len(module.events or []),
+                                count_constants=len(module.constants or []),
+                                count_errors=len(module.errors or []),
                             )
                             runtime_module.save(self.db_session)
 

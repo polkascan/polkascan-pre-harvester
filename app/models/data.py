@@ -457,6 +457,8 @@ class RuntimeModule(BaseModel):
     count_call_functions = sa.Column(sa.Integer(), nullable=False)
     count_storage_functions = sa.Column(sa.Integer(), nullable=False)
     count_events = sa.Column(sa.Integer(), nullable=False)
+    count_constants = sa.Column(sa.Integer(), nullable=False, server_default='0')
+    count_errors = sa.Column(sa.Integer(), nullable=False, server_default='0')
 
     def serialize_id(self):
         return '{}-{}'.format(self.spec_version, self.module_id)
