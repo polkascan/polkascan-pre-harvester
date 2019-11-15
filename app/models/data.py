@@ -436,6 +436,8 @@ class Runtime(BaseModel):
     count_call_functions = sa.Column(sa.Integer(), default=0, nullable=False)
     count_storage_functions = sa.Column(sa.Integer(), default=0, nullable=False)
     count_events = sa.Column(sa.Integer(), default=0, nullable=False)
+    count_constants = sa.Column(sa.Integer(), nullable=False, server_default='0')
+    count_errors = sa.Column(sa.Integer(), nullable=False, server_default='0')
 
     def serialize_id(self):
         return self.spec_version

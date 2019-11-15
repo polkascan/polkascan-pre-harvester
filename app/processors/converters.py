@@ -218,7 +218,9 @@ class PolkascanHarvesterService(BaseService):
                         count_call_functions=0,
                         count_events=0,
                         count_modules=len(metadata_decoder.metadata.modules),
-                        count_storage_functions=0
+                        count_storage_functions=0,
+                        count_constants=0,
+                        count_errors=0
                     )
 
                     runtime.save(self.db_session)
@@ -327,6 +329,8 @@ class PolkascanHarvesterService(BaseService):
                             runtime.count_call_functions += runtime_module.count_call_functions
                             runtime.count_events += runtime_module.count_events
                             runtime.count_storage_functions += runtime_module.count_storage_functions
+                            runtime.count_constants += runtime_module.count_constants
+                            runtime.count_errors += runtime_module.count_errors
 
                             if len(module.calls or []) > 0:
                                 for idx, call in enumerate(module.calls):
