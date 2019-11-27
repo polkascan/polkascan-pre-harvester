@@ -40,7 +40,6 @@ from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, Run
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
     AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog, RuntimeErrorMessage
 
-
 class HarvesterCouldNotAddBlock(Exception):
     pass
 
@@ -75,7 +74,10 @@ class PolkascanHarvesterService(BaseService):
             name='NextEnumSet',
             spec_version=block.spec_version_id
         ).first()
-
+        new_account_event = AccountAudit.query(self.db_session).all()
+        new_account_event_set = set()
+        for account_audit in new_account_event:
+            new_account_event_set.add(account_audit.account_id)
         if storage_call:
             genesis_account_page_count = substrate.get_storage(
                 block_hash=block.hash,
@@ -98,7 +100,6 @@ class PolkascanHarvesterService(BaseService):
                 block.count_accounts = 0
 
                 for enum_set_nr in range(0, genesis_account_page_count + 1):
-
                     account_index_u32 = U32()
                     account_index_u32.encode(enum_set_nr)
 
@@ -116,6 +117,8 @@ class PolkascanHarvesterService(BaseService):
                         block.count_accounts += len(genesis_accounts)
 
                         for idx, account_id in enumerate(genesis_accounts):
+                            if account_id.replace('0x', '') in new_account_event_set:
+                                continue
                             account_audit = AccountAudit(
                                 account_id=account_id.replace('0x', ''),
                                 block_id=block.id,
