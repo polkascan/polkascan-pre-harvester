@@ -28,7 +28,7 @@ from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCO
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
     SUBSTRATE_RPC_URL, DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
-    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, LEGACY_SESSION_VALIDATOR_LOOKUP
+    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, LEGACY_SESSION_VALIDATOR_LOOKUP, SUBSTRATE_METADATA_VERSION
 from app.utils.ss58 import ss58_encode
 from scalecodec import ScaleBytes
 from scalecodec.base import ScaleDecoder
@@ -63,7 +63,8 @@ class NewSessionEventProcessor(EventProcessor):
                     module="Staking",
                     function="CurrentEra",
                     return_scale_type=storage_call.get_return_type(),
-                    hasher=storage_call.type_hasher
+                    hasher=storage_call.type_hasher,
+                    metadata_version=SUBSTRATE_METADATA_VERSION
                 )
             except RemainingScaleBytesNotEmptyException:
                 pass
@@ -83,7 +84,8 @@ class NewSessionEventProcessor(EventProcessor):
                     module="Session",
                     function="Validators",
                     return_scale_type=storage_call.get_return_type(),
-                    hasher=storage_call.type_hasher
+                    hasher=storage_call.type_hasher,
+                    metadata_version=SUBSTRATE_METADATA_VERSION
                 ) or []
             except RemainingScaleBytesNotEmptyException:
                 pass
@@ -106,7 +108,8 @@ class NewSessionEventProcessor(EventProcessor):
                         module="Session",
                         function="QueuedKeys",
                         return_scale_type=storage_call.get_return_type(),
-                        hasher=storage_call.type_hasher
+                        hasher=storage_call.type_hasher,
+                        metadata_version=SUBSTRATE_METADATA_VERSION
                     ) or []
                 except RemainingScaleBytesNotEmptyException:
 
@@ -116,7 +119,8 @@ class NewSessionEventProcessor(EventProcessor):
                             module="Session",
                             function="QueuedKeys",
                             return_scale_type='Vec<(ValidatorId, LegacyKeys)>',
-                            hasher=storage_call.type_hasher
+                            hasher=storage_call.type_hasher,
+                            metadata_version=SUBSTRATE_METADATA_VERSION
                         ) or []
                     except RemainingScaleBytesNotEmptyException:
                         validator_session_list = substrate.get_storage(
@@ -124,7 +128,8 @@ class NewSessionEventProcessor(EventProcessor):
                             module="Session",
                             function="QueuedKeys",
                             return_scale_type='Vec<(ValidatorId, EdgewareKeys)>',
-                            hasher=storage_call.type_hasher
+                            hasher=storage_call.type_hasher,
+                            metadata_version=SUBSTRATE_METADATA_VERSION
                         ) or []
 
                 # build lookup dict
@@ -167,7 +172,8 @@ class NewSessionEventProcessor(EventProcessor):
                             function="Bonded",
                             params=validator_stash,
                             return_scale_type=storage_call.get_return_type(),
-                            hasher=storage_call.type_hasher
+                            hasher=storage_call.type_hasher,
+                            metadata_version=SUBSTRATE_METADATA_VERSION
                         ) or ''
 
                         validator_controller = validator_controller.replace('0x', '')
@@ -196,7 +202,8 @@ class NewSessionEventProcessor(EventProcessor):
                             function="Ledger",
                             params=validator_controller,
                             return_scale_type=storage_call.get_return_type(),
-                            hasher=storage_call.type_hasher
+                            hasher=storage_call.type_hasher,
+                            metadata_version=SUBSTRATE_METADATA_VERSION
                         ) or {}
 
                         validator_stash = validator_ledger.get('stash', '').replace('0x', '')
@@ -219,7 +226,8 @@ class NewSessionEventProcessor(EventProcessor):
                             function="NextKeyFor",
                             params=validator_controller,
                             return_scale_type=storage_call.get_return_type(),
-                            hasher=storage_call.type_hasher
+                            hasher=storage_call.type_hasher,
+                            metadata_version=SUBSTRATE_METADATA_VERSION
                         ) or ''
                     except RemainingScaleBytesNotEmptyException:
                         pass
@@ -241,7 +249,8 @@ class NewSessionEventProcessor(EventProcessor):
                         function="Validators",
                         params=validator_stash,
                         return_scale_type=storage_call.get_return_type(),
-                        hasher=storage_call.type_hasher
+                        hasher=storage_call.type_hasher,
+                        metadata_version=SUBSTRATE_METADATA_VERSION
                     ) or {'col1': {}, 'col2': {}}
                 except RemainingScaleBytesNotEmptyException:
                     pass
@@ -261,7 +270,8 @@ class NewSessionEventProcessor(EventProcessor):
                         function="Stakers",
                         params=validator_stash,
                         return_scale_type=storage_call.get_return_type(),
-                        hasher=storage_call.type_hasher
+                        hasher=storage_call.type_hasher,
+                        metadata_version=SUBSTRATE_METADATA_VERSION
                     ) or {}
                 except RemainingScaleBytesNotEmptyException:
                     pass
@@ -531,7 +541,8 @@ class DemocracyStartedProcessor(EventProcessor):
                 params=self.event.attributes[0]['valueRaw'],
                 return_scale_type=storage_call.type_value,
                 hasher=storage_call.type_hasher,
-                metadata=self.metadata
+                metadata=self.metadata,
+                metadata_version=SUBSTRATE_METADATA_VERSION
             )
 
             referendum_audit = DemocracyReferendumAudit(

@@ -47,6 +47,7 @@ DEBUG = bool(os.environ.get("DEBUG", False))
 # Version compatibility switches
 
 LEGACY_SESSION_VALIDATOR_LOOKUP = bool(os.environ.get("LEGACY_SESSION_VALIDATOR_LOOKUP", False))
+SUBSTRATE_METADATA_VERSION = int(os.environ.get("SUBSTRATE_METADATA_VERSION", 8))
 
 
 # Constants

@@ -24,7 +24,7 @@ import pytz
 
 from app.models.data import DemocracyVoteAudit, RuntimeStorage
 from app.processors.base import ExtrinsicProcessor
-from app.settings import DEMOCRACY_VOTE_AUDIT_TYPE_NORMAL, SUBSTRATE_RPC_URL
+from app.settings import DEMOCRACY_VOTE_AUDIT_TYPE_NORMAL, SUBSTRATE_RPC_URL, SUBSTRATE_METADATA_VERSION
 from scalecodec import Conviction
 from substrateinterface import SubstrateInterface
 
@@ -71,7 +71,8 @@ class DemocracyVoteExtrinsicProcessor(ExtrinsicProcessor):
                 function='FreeBalance',
                 params=stash_account_id,
                 return_scale_type=storage_call.type_value,
-                hasher=storage_call.type_hasher
+                hasher=storage_call.type_hasher,
+                metadata_version=SUBSTRATE_METADATA_VERSION
             )
 
             vote_audit = DemocracyVoteAudit(

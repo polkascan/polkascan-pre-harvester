@@ -35,7 +35,7 @@ from app.processors.base import BaseService, ProcessorRegistry
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
-    SUBSTRATE_MOCK_EXTRINSICS, FINALIZATION_BY_BLOCK_CONFIRMATIONS
+    SUBSTRATE_MOCK_EXTRINSICS, FINALIZATION_BY_BLOCK_CONFIRMATIONS, SUBSTRATE_METADATA_VERSION
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
     AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog, RuntimeErrorMessage
@@ -82,7 +82,8 @@ class PolkascanHarvesterService(BaseService):
                 module="Indices",
                 function="NextEnumSet",
                 return_scale_type=storage_call.get_return_type(),
-                hasher=storage_call.type_hasher
+                hasher=storage_call.type_hasher,
+                metadata_version=SUBSTRATE_METADATA_VERSION
             ) or 0
 
             # Get Accounts on EnumSet
@@ -108,7 +109,8 @@ class PolkascanHarvesterService(BaseService):
                         function="EnumSet",
                         params=account_index_u32.data.data.hex(),
                         return_scale_type=storage_call.get_return_type(),
-                        hasher=storage_call.type_hasher
+                        hasher=storage_call.type_hasher,
+                        metadata_version=SUBSTRATE_METADATA_VERSION
                     )
 
                     if genesis_accounts:
