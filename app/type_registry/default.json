@@ -71,6 +71,15 @@
          ["scheduling", "ParaScheduling"]
       ]
     },
+    "(ReferendumInfo<BlockNumber, Hash>)": {
+      "type": "struct",
+      "type_mapping": [
+         ["end", "BlockNumber"],
+         ["proposalHash", "Hash"],
+         ["threshold", "VoteThreshold"],
+         ["delay", "BlockNumber"]
+      ]
+    },
     "ReportIdOf": "Hash",
     "SubId": "u32",
     "Weight": "u32",
