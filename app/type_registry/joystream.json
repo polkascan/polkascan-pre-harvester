@@ -41,6 +41,14 @@
          ["description", "Vec<u8>"],
          ["active", "bool"]
       ]
+    },
+    "UserInfo": {
+      "type": "struct",
+      "type_mapping": [
+         ["handle", "Option<Vec<u8>>"],
+         ["avatar_uri", "Option<Vec<u8>>"],
+         ["about", "Option<Vec<u8>>"]
+      ]
     }
   }
 }
