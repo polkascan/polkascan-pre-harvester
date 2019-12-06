@@ -96,8 +96,8 @@ class DemocracyVoteExtrinsicProcessor(ExtrinsicProcessor):
                     vote_audit.data['vote_no'] = not bool(vote_audit.data['vote_raw'])
                     # Determine conviction and weight of vote
                     vote_audit.data['conviction'] = vote_audit.data['vote_raw'] & Conviction.CONVICTION_MASK
-                    vote_audit.data['vote_yes_weighted'] = int(vote_audit.data['vote_yes']) * vote_audit.data['stash']
-                    vote_audit.data['vote_no_weighted'] = int(vote_audit.data['vote_no']) * vote_audit.data['stash']
+                    vote_audit.data['vote_yes_weighted'] = int(vote_audit.data['vote_yes']) * int(vote_audit.data['stash'] or 0)
+                    vote_audit.data['vote_no_weighted'] = int(vote_audit.data['vote_no']) * int(vote_audit.data['stash'] or 0)
 
             vote_audit.save(db_session)
 
