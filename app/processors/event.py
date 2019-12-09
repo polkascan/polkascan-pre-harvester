@@ -22,7 +22,7 @@ from packaging import version
 
 from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session, AccountAudit, \
     AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator, DemocracyReferendumAudit, RuntimeStorage, \
-    SessionNominator
+    SessionNominator, RuntimeCall
 from app.processors.base import EventProcessor
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
@@ -30,7 +30,7 @@ from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCO
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, LEGACY_SESSION_VALIDATOR_LOOKUP, SUBSTRATE_METADATA_VERSION
 from app.utils.ss58 import ss58_encode
-from scalecodec import ScaleBytes
+from scalecodec import ScaleBytes, Proposal
 from scalecodec.base import ScaleDecoder
 from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
 from substrateinterface import SubstrateInterface
@@ -505,8 +505,7 @@ class DemocracyTabledEventProcessor(EventProcessor):
                 event_idx=self.event.event_idx,
                 type_id=DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED
             )
-
-            proposal_audit.data = self.event.attributes
+            proposal_audit.data = {'bond': self.event.attributes[1]['value'], 'proposal': None}
 
             proposal_audit.save(db_session)
 
@@ -545,6 +544,34 @@ class DemocracyStartedProcessor(EventProcessor):
                 metadata_version=SUBSTRATE_METADATA_VERSION
             )
 
+            if proposal.get('proposalHash'):
+                # Retrieve proposal by hash
+                substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+                storage_call = RuntimeStorage.query(db_session).filter_by(
+                    module_id='democracy',
+                    name='Preimages',
+                ).order_by(RuntimeStorage.spec_version.desc()).first()
+
+                proposal = substrate.get_storage(
+                    block_hash=self.block.hash,
+                    module='Democracy',
+                    function='Preimages',
+                    params=proposal.get('proposalHash').replace('0x', ''),
+                    return_scale_type=storage_call.type_value,
+                    hasher=storage_call.type_hasher,
+                    metadata=self.metadata,
+                    metadata_version=SUBSTRATE_METADATA_VERSION
+                )
+
+                # Retrieve the documentation of the proposal call
+                runtime_call = RuntimeCall.query(db_session).filter_by(
+                    spec_version=storage_call.spec_version,
+                    lookup=proposal['proposal']['call_index']
+                ).first()
+
+                if runtime_call:
+                    proposal['proposal']['call_documentation'] = runtime_call.documentation
+
             referendum_audit = DemocracyReferendumAudit(
                 democracy_referendum_id=self.event.attributes[0]['value'],
                 block_id=self.event.block_id,
@@ -561,7 +588,7 @@ class DemocracyStartedProcessor(EventProcessor):
             referendum_audit.save(db_session)
 
     def accumulation_revert(self, db_session):
-        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
             db_session.delete(item)
 
 
@@ -587,7 +614,7 @@ class DemocracyPassedProcessor(EventProcessor):
             referendum_audit.save(db_session)
 
     def accumulation_revert(self, db_session):
-        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
             db_session.delete(item)
 
 
@@ -613,7 +640,7 @@ class DemocracyNotPassedProcessor(EventProcessor):
             referendum_audit.save(db_session)
 
     def accumulation_revert(self, db_session):
-        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
             db_session.delete(item)
 
 
@@ -639,7 +666,7 @@ class DemocracyCancelledProcessor(EventProcessor):
             referendum_audit.save(db_session)
 
     def accumulation_revert(self, db_session):
-        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
             db_session.delete(item)
 
 
@@ -667,7 +694,7 @@ class DemocracyExecutedProcessor(EventProcessor):
             referendum_audit.save(db_session)
 
     def accumulation_revert(self, db_session):
-        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
+        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
             db_session.delete(item)
 
 

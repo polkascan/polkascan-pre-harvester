@@ -27,7 +27,7 @@ from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import EventsDecoder, ExtrinsicsDecoder, ExtrinsicsBlock61181Decoder
 
 from substrateinterface import SubstrateInterface
-from app.settings import SUBSTRATE_RPC_URL
+from app.settings import SUBSTRATE_RPC_URL, SUBSTRATE_METADATA_VERSION
 
 
 class ExtractMetadataResource(BaseResource):
@@ -118,7 +118,8 @@ class StorageValidatorResource(BaseResource):
             block_hash="0x519fc882113d886615ad5c7a93f8319640270ab8a09546798f7f8d973a99b017",
             module="Staking",
             function="CurrentEra",
-            return_scale_type='BlockNumber'
+            return_scale_type='BlockNumber',
+            metadata_version=SUBSTRATE_METADATA_VERSION
         )
 
         # Retrieve validator for new session from storage
@@ -126,7 +127,8 @@ class StorageValidatorResource(BaseResource):
             block_hash="0x519fc882113d886615ad5c7a93f8319640270ab8a09546798f7f8d973a99b017",
             module="Session",
             function="Validators",
-            return_scale_type='Vec<AccountId>'
+            return_scale_type='Vec<AccountId>',
+            metadata_version=SUBSTRATE_METADATA_VERSION
         ) or []
 
         # for validator in validators:
