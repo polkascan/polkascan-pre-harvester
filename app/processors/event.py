@@ -563,7 +563,7 @@ class DemocracyStartedProcessor(EventProcessor):
                     metadata_version=SUBSTRATE_METADATA_VERSION
                 )
 
-                if proposal.get('proposal') and proposal['proposal'].get('call_index'):
+                if proposal and proposal.get('proposal') and proposal['proposal'].get('call_index'):
                     # Retrieve the documentation of the proposal call
                     call_data = self.metadata.call_index.get(proposal['proposal'].get('call_index'))
 
