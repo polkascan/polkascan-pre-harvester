@@ -405,6 +405,58 @@ class DemocracyVoteAudit(BaseModel):
     data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
 
 
+class CouncilMotion(BaseModel):
+    __tablename__ = 'data_council_motion'
+
+    motion_hash = sa.Column(sa.String(64), primary_key=True, nullable=False)
+    account_id = sa.Column(sa.String(64), nullable=True)
+    proposal_id = sa.Column(sa.Integer(), nullable=True)
+    proposal_hash = sa.Column(sa.String(64), nullable=True)
+    proposal = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+    member_threshold = sa.Column(sa.Integer(), nullable=False)
+    yes_votes_count = sa.Column(sa.Integer(), nullable=False)
+    no_votes_count = sa.Column(sa.Integer(), nullable=False)
+    approved = sa.Column(sa.Boolean(), nullable=True)
+    executed = sa.Column(sa.Boolean(), nullable=True)
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
+    status = sa.Column(sa.String(64))
+
+
+class CouncilMotionAudit(BaseModel):
+    __tablename__ = 'data_council_motion_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    motion_hash = sa.Column(sa.String(64))
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    type_id = sa.Column(sa.Integer(), nullable=False)
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+
+
+class CouncilVote(BaseModel):
+    __tablename__ = 'data_council_vote'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    motion_hash = sa.Column(sa.String(64), index=True)
+    account_id = sa.Column(sa.String(64), index=True)
+    vote = sa.Column(sa.Boolean())
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
+
+
+class CouncilVoteAudit(BaseModel):
+    __tablename__ = 'data_council_vote_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    motion_hash = sa.Column(sa.String(64))
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+
+
 class Contract(BaseModel):
     __tablename__ = 'data_contract'
 

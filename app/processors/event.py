@@ -22,13 +22,15 @@ from packaging import version
 
 from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session, AccountAudit, \
     AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator, DemocracyReferendumAudit, RuntimeStorage, \
-    SessionNominator, RuntimeCall
+    SessionNominator, RuntimeCall, CouncilMotionAudit, CouncilVoteAudit
 from app.processors.base import EventProcessor
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
     SUBSTRATE_RPC_URL, DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
-    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, LEGACY_SESSION_VALIDATOR_LOOKUP, SUBSTRATE_METADATA_VERSION
+    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, LEGACY_SESSION_VALIDATOR_LOOKUP, SUBSTRATE_METADATA_VERSION, \
+    COUNCIL_MOTION_TYPE_PROPOSED, COUNCIL_MOTION_TYPE_APPROVED, COUNCIL_MOTION_TYPE_DISAPPROVED, \
+    COUNCIL_MOTION_TYPE_EXECUTED
 from app.utils.ss58 import ss58_encode
 from scalecodec import ScaleBytes, Proposal
 from scalecodec.base import ScaleDecoder
@@ -552,7 +554,7 @@ class DemocracyStartedProcessor(EventProcessor):
                     name='Preimages',
                 ).order_by(RuntimeStorage.spec_version.desc()).first()
 
-                proposal = substrate.get_storage(
+                proposal_preimage = substrate.get_storage(
                     block_hash=self.block.hash,
                     module='Democracy',
                     function='Preimages',
@@ -563,7 +565,10 @@ class DemocracyStartedProcessor(EventProcessor):
                     metadata_version=SUBSTRATE_METADATA_VERSION
                 )
 
-                if proposal and proposal.get('proposal') and proposal['proposal'].get('call_index'):
+                if proposal_preimage:
+                    proposal.update(proposal_preimage)
+
+                if proposal.get('proposal') and proposal['proposal'].get('call_index'):
                     # Retrieve the documentation of the proposal call
                     call_data = self.metadata.call_index.get(proposal['proposal'].get('call_index'))
 
@@ -693,6 +698,171 @@ class DemocracyExecutedProcessor(EventProcessor):
 
     def accumulation_revert(self, db_session):
         for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
+
+class CouncilMotionProposedEventProcessor(EventProcessor):
+
+    module_id = 'council'
+    event_id = 'Proposed'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 4 and \
+                self.event.attributes[0]['type'] == 'AccountId' and \
+                self.event.attributes[1]['type'] == 'ProposalIndex' and \
+                self.event.attributes[2]['type'] == 'Hash' and \
+                self.event.attributes[3]['type'] == 'MemberCount':
+
+            motion_audit = CouncilMotionAudit(
+                motion_hash=self.event.attributes[2]['value'].replace('0x', ''),
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=COUNCIL_MOTION_TYPE_PROPOSED
+            )
+
+            motion_audit.data = {
+                'proposalIndex': self.event.attributes[1]['value'],
+                'proposedBy': self.event.attributes[0]['value'],
+                'threshold': self.event.attributes[3]['value'],
+                'proposal': None
+            }
+
+            for param in self.extrinsic.params:
+                if param.get('name') == 'proposal':
+                    motion_audit.data['proposal'] = param.get('value')
+
+            motion_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
+
+class CouncilMotionApprovedEventProcessor(EventProcessor):
+
+    module_id = 'council'
+    event_id = 'Approved'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 1 and self.event.attributes[0]['type'] == 'Hash':
+
+            motion_audit = CouncilMotionAudit(
+                motion_hash=self.event.attributes[0]['value'].replace('0x', ''),
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=COUNCIL_MOTION_TYPE_APPROVED
+            )
+
+            motion_audit.data = {
+                'approved': True
+            }
+
+            motion_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
+
+class CouncilMotionDisapprovedEventProcessor(EventProcessor):
+
+    module_id = 'council'
+    event_id = 'Disapproved'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 1 and self.event.attributes[0]['type'] == 'Hash':
+
+            motion_audit = CouncilMotionAudit(
+                motion_hash=self.event.attributes[0]['value'].replace('0x', ''),
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=COUNCIL_MOTION_TYPE_DISAPPROVED
+            )
+
+            motion_audit.data = {
+                'approved': False
+            }
+
+            motion_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
+
+class CouncilMotionExecutedEventProcessor(EventProcessor):
+
+    module_id = 'council'
+    event_id = 'Executed'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 2 and \
+                self.event.attributes[0]['type'] == 'Hash' and \
+                self.event.attributes[1]['type'] == 'bool':
+
+            motion_audit = CouncilMotionAudit(
+                motion_hash=self.event.attributes[0]['value'].replace('0x', ''),
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=COUNCIL_MOTION_TYPE_EXECUTED
+            )
+
+            motion_audit.data = {
+                'executed': True
+            }
+
+            motion_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
+
+class CouncilMotionVotedEventProcessor(EventProcessor):
+
+    module_id = 'council'
+    event_id = 'Voted'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 5 and \
+                self.event.attributes[0]['type'] == 'AccountId' and \
+                self.event.attributes[1]['type'] == 'Hash' and \
+                self.event.attributes[2]['type'] == 'bool' and \
+                self.event.attributes[3]['type'] == 'MemberCount' and \
+                self.event.attributes[4]['type'] == 'MemberCount':
+
+            vote_audit = CouncilVoteAudit(
+                motion_hash=self.event.attributes[1]['value'].replace('0x', ''),
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx
+            )
+
+            vote_audit.data = {
+                'vote': self.event.attributes[2]['value'],
+                'account_id': self.event.attributes[0]['value'],
+                'yes_votes_count': self.event.attributes[3]['value'],
+                'no_votes_count': self.event.attributes[4]['value']
+            }
+
+            vote_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in CouncilVoteAudit.query(db_session).filter_by(block_id=self.block.id):
             db_session.delete(item)
 
 

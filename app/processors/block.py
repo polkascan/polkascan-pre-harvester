@@ -24,13 +24,15 @@ import dateutil
 from sqlalchemy.orm.exc import NoResultFound
 
 from app.models.data import Log, AccountAudit, Account, AccountIndexAudit, AccountIndex, DemocracyProposalAudit, \
-    DemocracyProposal, DemocracyReferendumAudit, DemocracyReferendum, DemocracyVoteAudit, DemocracyVote
+    DemocracyProposal, DemocracyReferendumAudit, DemocracyReferendum, DemocracyVoteAudit, DemocracyVote, \
+    CouncilMotionAudit, CouncilMotion, CouncilVoteAudit, CouncilVote
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, SUBSTRATE_ADDRESS_TYPE, DEMOCRACY_VOTE_AUDIT_TYPE_NORMAL, \
-    DEMOCRACY_VOTE_AUDIT_TYPE_PROXY
+    DEMOCRACY_VOTE_AUDIT_TYPE_PROXY, COUNCIL_MOTION_TYPE_PROPOSED, COUNCIL_MOTION_TYPE_APPROVED, \
+    COUNCIL_MOTION_TYPE_DISAPPROVED, COUNCIL_MOTION_TYPE_EXECUTED
 from app.utils.ss58 import ss58_encode, ss58_encode_account_index
 from scalecodec.base import ScaleBytes
 
@@ -266,6 +268,84 @@ class DemocracyVoteBlockProcessor(BlockProcessor):
             vote.conviction = vote_audit.data.get('conviction')
             vote.vote_yes_weighted = vote_audit.data.get('vote_yes_weighted')
             vote.vote_no_weighted = vote_audit.data.get('vote_no_weighted')
+
+            vote.save(db_session)
+
+
+class CouncilMotionBlockProcessor(BlockProcessor):
+
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+
+        for motion_audit in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id).order_by('event_idx'):
+            import pdb; pdb.set_trace()
+            if motion_audit.type_id == COUNCIL_MOTION_TYPE_PROPOSED:
+                motion = CouncilMotion(
+                    motion_hash=motion_audit.motion_hash,
+                    account_id=motion_audit.data.get('proposedBy').replace('0x', ''),
+                    proposal=motion_audit.data.get('proposal'),
+                    proposal_hash=motion_audit.data.get('proposalHash'),
+                    member_threshold=motion_audit.data.get('threshold'),
+                    proposal_id=motion_audit.data.get('proposalIndex'),
+                    yes_votes_count=0,
+                    no_votes_count=0,
+                    status='Proposed',
+                    created_at_block=self.block.id,
+                    updated_at_block=self.block.id
+                )
+            else:
+
+                motion = CouncilMotion.query(db_session).filter_by(
+                    motion_hash=motion_audit.motion_hash).one()
+
+                motion.updated_at_block = self.block.id
+
+                if motion_audit.type_id == COUNCIL_MOTION_TYPE_APPROVED:
+                    motion.approved = motion_audit.data.get('approved')
+                    motion.status = 'Approved'
+                elif motion_audit.type_id == COUNCIL_MOTION_TYPE_DISAPPROVED:
+                    motion.approved = motion_audit.data.get('approved')
+                    motion.status = 'Disapproved'
+                elif motion_audit.type_id == COUNCIL_MOTION_TYPE_EXECUTED:
+                    motion.executed = motion_audit.data.get('executed')
+                    motion.status = 'Executed'
+                else:
+                    motion.status = '[unknown]'
+
+            motion.save(db_session)
+
+
+class CouncilVoteBlockProcessor(BlockProcessor):
+
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+
+        for vote_audit in CouncilVoteAudit.query(db_session).filter_by(block_id=self.block.id).order_by('extrinsic_idx'):
+
+            try:
+                vote = CouncilVote.query(db_session).filter_by(
+                    motion_hash=vote_audit.motion_hash,
+                    account_id=vote_audit.data.get('account_id')
+                ).one()
+
+                vote.updated_at_block = self.block.id
+
+            except NoResultFound:
+
+                vote = CouncilVote(
+                    motion_hash=vote_audit.motion_hash,
+                    created_at_block=self.block.id,
+                    updated_at_block=self.block.id,
+                    account_id=vote_audit.data.get('account_id').replace('0x', ''),
+                )
+
+            vote.vote = vote_audit.data.get('vote')
+
+            # Update total vote count on motion
+
+            motion = CouncilMotion.query(db_session).filter_by(
+                motion_hash=vote.motion_hash).one()
+
+            motion.yes_votes_count = vote_audit.data.get('yes_votes_count')
+            motion.no_votes_count = vote_audit.data.get('no_votes_count')
 
             vote.save(db_session)
 
