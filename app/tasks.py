@@ -35,7 +35,7 @@ from app.processors.converters import PolkascanHarvesterService, HarvesterCouldN
     BlockIntegrityError
 from substrateinterface import SubstrateInterface
 
-from app.settings import DB_CONNECTION, DEBUG, SUBSTRATE_RPC_URL, TYPE_REGISTRY
+from app.settings import DB_CONNECTION, DEBUG, SUBSTRATE_RPC_URL, TYPE_REGISTRY, FINALIZATION_ONLY
 
 CELERY_BROKER = os.environ.get('CELERY_BROKER')
 CELERY_BACKEND = os.environ.get('CELERY_BACKEND')
@@ -197,9 +197,12 @@ def start_harvester(self, check_gaps=False):
     # Start sequencer
     sequencer_task = start_sequencer.delay()
 
-    # Continue from current finalised head
+    # Continue from current (finalised) head
+    if FINALIZATION_ONLY == 1:
+        start_block_hash = substrate.get_chain_finalised_head()
+    else:
+        start_block_hash = substrate.get_chain_head()
 
-    start_block_hash = substrate.get_chain_head()
     end_block_hash = None
 
     accumulate_block_recursive.delay(start_block_hash, end_block_hash)
