@@ -563,14 +563,12 @@ class DemocracyStartedProcessor(EventProcessor):
                     metadata_version=SUBSTRATE_METADATA_VERSION
                 )
 
-                # Retrieve the documentation of the proposal call
-                runtime_call = RuntimeCall.query(db_session).filter_by(
-                    spec_version=storage_call.spec_version,
-                    lookup=proposal['proposal']['call_index']
-                ).first()
+                if proposal.get('proposal') and proposal['proposal'].get('call_index'):
+                    # Retrieve the documentation of the proposal call
+                    call_data = self.metadata.call_index.get(proposal['proposal'].get('call_index'))
 
-                if runtime_call:
-                    proposal['proposal']['call_documentation'] = runtime_call.documentation
+                    if call_data:
+                        proposal['proposal']['call_documentation'] = '\n'.join(call_data[1].docs)
 
             referendum_audit = DemocracyReferendumAudit(
                 democracy_referendum_id=self.event.attributes[0]['value'],
