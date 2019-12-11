@@ -439,6 +439,7 @@ class CouncilVote(BaseModel):
     __tablename__ = 'data_council_vote'
 
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    proposal_id = sa.Column(sa.Integer(), nullable=True, index=True)
     motion_hash = sa.Column(sa.String(64), index=True)
     account_id = sa.Column(sa.String(64), index=True)
     vote = sa.Column(sa.Boolean())

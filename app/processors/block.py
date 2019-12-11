@@ -327,37 +327,42 @@ class CouncilVoteBlockProcessor(BlockProcessor):
 
         for vote_audit in CouncilVoteAudit.query(db_session).filter_by(block_id=self.block.id).order_by('extrinsic_idx'):
 
-            try:
-                vote = CouncilVote.query(db_session).filter_by(
-                    motion_hash=vote_audit.motion_hash,
-                    account_id=vote_audit.data.get('account_id')
-                ).one()
-
-                vote.updated_at_block = self.block.id
-
-            except NoResultFound:
-
-                vote = CouncilVote(
-                    motion_hash=vote_audit.motion_hash,
-                    created_at_block=self.block.id,
-                    updated_at_block=self.block.id,
-                    account_id=vote_audit.data.get('account_id').replace('0x', ''),
-                )
-
-            vote.vote = vote_audit.data.get('vote')
-
-            # Update total vote count on motion
-
             motion = CouncilMotion.query(db_session).filter(
-                CouncilMotion.motion_hash == vote.motion_hash,
+                CouncilMotion.motion_hash == vote_audit.motion_hash,
                 CouncilMotion.status != 'Disapproved',
                 CouncilMotion.status != 'Executed',
             ).first()
 
-            motion.yes_votes_count = vote_audit.data.get('yes_votes_count')
-            motion.no_votes_count = vote_audit.data.get('no_votes_count')
+            if motion:
 
-            vote.save(db_session)
+                try:
+                    vote = CouncilVote.query(db_session).filter_by(
+                        proposal_id=motion.proposal_id,
+                        account_id=vote_audit.data.get('account_id')
+                    ).one()
+
+                    vote.updated_at_block = self.block.id
+
+                except NoResultFound:
+
+                    vote = CouncilVote(
+                        proposal_id=motion.proposal_id,
+                        motion_hash=vote_audit.motion_hash,
+                        created_at_block=self.block.id,
+                        updated_at_block=self.block.id,
+                        account_id=vote_audit.data.get('account_id').replace('0x', ''),
+                    )
+
+                vote.vote = vote_audit.data.get('vote')
+
+                # Update total vote count on motion
+
+                motion.yes_votes_count = vote_audit.data.get('yes_votes_count')
+                motion.no_votes_count = vote_audit.data.get('no_votes_count')
+
+                motion.save(db_session)
+
+                vote.save(db_session)
 
 
 class AccountIndexBlockProcessor(BlockProcessor):
