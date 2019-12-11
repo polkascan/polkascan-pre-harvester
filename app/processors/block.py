@@ -296,8 +296,11 @@ class CouncilMotionBlockProcessor(BlockProcessor):
                 motion.save(db_session)
             else:
 
-                motion = CouncilMotion.query(db_session).filter_by(
-                    motion_hash=motion_audit.motion_hash).first()
+                motion = CouncilMotion.query(db_session).filter(
+                    CouncilMotion.motion_hash == motion_audit.motion_hash,
+                    CouncilMotion.status != 'Disapproved',
+                    CouncilMotion.status != 'Executed',
+                ).first()
 
                 # Check if motion exists (otherwise motion is created in event that is not yet processed)
                 if motion:
@@ -345,8 +348,11 @@ class CouncilVoteBlockProcessor(BlockProcessor):
 
             # Update total vote count on motion
 
-            motion = CouncilMotion.query(db_session).filter_by(
-                motion_hash=vote.motion_hash).one()
+            motion = CouncilMotion.query(db_session).filter(
+                CouncilMotion.motion_hash == vote.motion_hash,
+                CouncilMotion.status != 'Disapproved',
+                CouncilMotion.status != 'Executed',
+            ).first()
 
             motion.yes_votes_count = vote_audit.data.get('yes_votes_count')
             motion.no_votes_count = vote_audit.data.get('no_votes_count')

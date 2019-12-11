@@ -408,9 +408,9 @@ class DemocracyVoteAudit(BaseModel):
 class CouncilMotion(BaseModel):
     __tablename__ = 'data_council_motion'
 
-    motion_hash = sa.Column(sa.String(64), primary_key=True, nullable=False)
+    proposal_id = sa.Column(sa.Integer(), primary_key=True)
+    motion_hash = sa.Column(sa.String(64), nullable=False, index=True)
     account_id = sa.Column(sa.String(64), nullable=True)
-    proposal_id = sa.Column(sa.Integer(), nullable=True)
     proposal_hash = sa.Column(sa.String(64), nullable=True)
     proposal = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
     member_threshold = sa.Column(sa.Integer(), nullable=False)
