@@ -292,26 +292,30 @@ class CouncilMotionBlockProcessor(BlockProcessor):
                     created_at_block=self.block.id,
                     updated_at_block=self.block.id
                 )
+
+                motion.save(db_session)
             else:
 
                 motion = CouncilMotion.query(db_session).filter_by(
-                    motion_hash=motion_audit.motion_hash).one()
+                    motion_hash=motion_audit.motion_hash).first()
 
-                motion.updated_at_block = self.block.id
+                # Check if motion exists (otherwise motion is created in event that is not yet processed)
+                if motion:
+                    motion.updated_at_block = self.block.id
 
-                if motion_audit.type_id == COUNCIL_MOTION_TYPE_APPROVED:
-                    motion.approved = motion_audit.data.get('approved')
-                    motion.status = 'Approved'
-                elif motion_audit.type_id == COUNCIL_MOTION_TYPE_DISAPPROVED:
-                    motion.approved = motion_audit.data.get('approved')
-                    motion.status = 'Disapproved'
-                elif motion_audit.type_id == COUNCIL_MOTION_TYPE_EXECUTED:
-                    motion.executed = motion_audit.data.get('executed')
-                    motion.status = 'Executed'
-                else:
-                    motion.status = '[unknown]'
+                    if motion_audit.type_id == COUNCIL_MOTION_TYPE_APPROVED:
+                        motion.approved = motion_audit.data.get('approved')
+                        motion.status = 'Approved'
+                    elif motion_audit.type_id == COUNCIL_MOTION_TYPE_DISAPPROVED:
+                        motion.approved = motion_audit.data.get('approved')
+                        motion.status = 'Disapproved'
+                    elif motion_audit.type_id == COUNCIL_MOTION_TYPE_EXECUTED:
+                        motion.executed = motion_audit.data.get('executed')
+                        motion.status = 'Executed'
+                    else:
+                        motion.status = '[unknown]'
 
-            motion.save(db_session)
+                    motion.save(db_session)
 
 
 class CouncilVoteBlockProcessor(BlockProcessor):
