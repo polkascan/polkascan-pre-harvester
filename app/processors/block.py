@@ -277,7 +277,7 @@ class CouncilMotionBlockProcessor(BlockProcessor):
     def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
 
         for motion_audit in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id).order_by('event_idx'):
-            import pdb; pdb.set_trace()
+
             if motion_audit.type_id == COUNCIL_MOTION_TYPE_PROPOSED:
                 motion = CouncilMotion(
                     motion_hash=motion_audit.motion_hash,
