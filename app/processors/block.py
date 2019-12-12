@@ -338,7 +338,7 @@ class CouncilVoteBlockProcessor(BlockProcessor):
                 try:
                     vote = CouncilVote.query(db_session).filter_by(
                         proposal_id=motion.proposal_id,
-                        account_id=vote_audit.data.get('account_id')
+                        account_id=vote_audit.data.get('account_id').replace('0x', ''),
                     ).one()
 
                     vote.updated_at_block = self.block.id
