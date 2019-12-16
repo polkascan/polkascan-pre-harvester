@@ -375,16 +375,24 @@ class AccountIndexBlockProcessor(BlockProcessor):
 
             if account_index_audit.type_id == ACCOUNT_INDEX_AUDIT_TYPE_NEW:
 
-                account_index = AccountIndex(
-                    id=account_index_audit.account_index_id,
-                    account_id=account_index_audit.account_id,
-                    short_address=ss58_encode_account_index(
-                        account_index_audit.account_index_id,
-                        SUBSTRATE_ADDRESS_TYPE
-                    ),
-                    created_at_block=self.block.id,
-                    updated_at_block=self.block.id
+                # Check if account index already exists
+                account_index = AccountIndex.query(db_session).filter_by(
+                    id=account_index_audit.account_index_id
+                ).first()
+
+                if not account_index:
+
+                    account_index = AccountIndex(
+                        id=account_index_audit.account_index_id,
+                        created_at_block=self.block.id
+                    )
+
+                account_index.account_id = account_index_audit.account_id
+                account_index.short_address = ss58_encode_account_index(
+                    account_index_audit.account_index_id,
+                    SUBSTRATE_ADDRESS_TYPE
                 )
+                account_index.updated_at_block = self.block.id
 
                 account_index.save(db_session)
 
