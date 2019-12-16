@@ -974,18 +974,22 @@ class PolkascanHarvesterService(BaseService):
             return {'result': 'Nothing to sequence'}
 
     def process_reorg_block(self, block):
-        model = ReorgBlock(**block.asdict())
-        model.save(self.db_session)
 
-        for extrinsic in Extrinsic.query(self.db_session).filter_by(block_id=block.id):
-            model = ReorgExtrinsic(block_hash=block.hash, **extrinsic.asdict())
+        # Check if reorg already exists
+        if ReorgBlock.query(self.db_session).filter_by(hash=block.hash).count() == 0:
+
+            model = ReorgBlock(**block.asdict())
             model.save(self.db_session)
 
-        for event in Event.query(self.db_session).filter_by(block_id=block.id):
-            model = ReorgEvent(block_hash=block.hash, **event.asdict())
-            model.save(self.db_session)
+            for extrinsic in Extrinsic.query(self.db_session).filter_by(block_id=block.id):
+                model = ReorgExtrinsic(block_hash=block.hash, **extrinsic.asdict())
+                model.save(self.db_session)
 
-        for log in Log.query(self.db_session).filter_by(block_id=block.id):
-            model = ReorgLog(block_hash=block.hash, **log.asdict())
-            model.save(self.db_session)
+            for event in Event.query(self.db_session).filter_by(block_id=block.id):
+                model = ReorgEvent(block_hash=block.hash, **event.asdict())
+                model.save(self.db_session)
+
+            for log in Log.query(self.db_session).filter_by(block_id=block.id):
+                model = ReorgLog(block_hash=block.hash, **log.asdict())
+                model.save(self.db_session)
 
