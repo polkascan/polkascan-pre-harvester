@@ -25,14 +25,17 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from app.models.data import Log, AccountAudit, Account, AccountIndexAudit, AccountIndex, DemocracyProposalAudit, \
     DemocracyProposal, DemocracyReferendumAudit, DemocracyReferendum, DemocracyVoteAudit, DemocracyVote, \
-    CouncilMotionAudit, CouncilMotion, CouncilVoteAudit, CouncilVote
+    CouncilMotionAudit, CouncilMotion, CouncilVoteAudit, CouncilVote, TechCommProposal, TechCommProposalAudit, \
+    TechCommProposalVoteAudit, TechCommProposalVote, TreasuryProposalAudit, TreasuryProposal
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
     DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, SUBSTRATE_ADDRESS_TYPE, DEMOCRACY_VOTE_AUDIT_TYPE_NORMAL, \
     DEMOCRACY_VOTE_AUDIT_TYPE_PROXY, COUNCIL_MOTION_TYPE_PROPOSED, COUNCIL_MOTION_TYPE_APPROVED, \
-    COUNCIL_MOTION_TYPE_DISAPPROVED, COUNCIL_MOTION_TYPE_EXECUTED
+    COUNCIL_MOTION_TYPE_DISAPPROVED, COUNCIL_MOTION_TYPE_EXECUTED, TECHCOMM_PROPOSAL_TYPE_PROPOSED, \
+    TECHCOMM_PROPOSAL_TYPE_APPROVED, TECHCOMM_PROPOSAL_TYPE_DISAPPROVED, TECHCOMM_PROPOSAL_TYPE_EXECUTED, \
+    TREASURY_PROPOSAL_TYPE_PROPOSED, TREASURY_PROPOSAL_TYPE_AWARDED, TREASURY_PROPOSAL_TYPE_REJECTED
 from app.utils.ss58 import ss58_encode, ss58_encode_account_index
 from scalecodec.base import ScaleBytes
 
@@ -363,6 +366,140 @@ class CouncilVoteBlockProcessor(BlockProcessor):
                 motion.save(db_session)
 
                 vote.save(db_session)
+
+
+class TechCommProposalBlockProcessor(BlockProcessor):
+
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+
+        for motion_audit in TechCommProposalAudit.query(db_session).filter_by(block_id=self.block.id).order_by('event_idx'):
+
+            if motion_audit.type_id == TECHCOMM_PROPOSAL_TYPE_PROPOSED:
+                motion = TechCommProposal(
+                    motion_hash=motion_audit.motion_hash,
+                    account_id=motion_audit.data.get('proposedBy').replace('0x', ''),
+                    proposal=motion_audit.data.get('proposal'),
+                    proposal_hash=motion_audit.data.get('proposalHash'),
+                    member_threshold=motion_audit.data.get('threshold'),
+                    proposal_id=motion_audit.data.get('proposalIndex'),
+                    yes_votes_count=0,
+                    no_votes_count=0,
+                    status='Proposed',
+                    created_at_block=self.block.id,
+                    updated_at_block=self.block.id
+                )
+
+                motion.save(db_session)
+            else:
+
+                motion = TechCommProposal.query(db_session).filter(
+                    TechCommProposal.motion_hash == motion_audit.motion_hash,
+                    TechCommProposal.status != 'Disapproved',
+                    TechCommProposal.status != 'Executed',
+                ).first()
+
+                # Check if motion exists (otherwise motion is created in event that is not yet processed)
+                if motion:
+                    motion.updated_at_block = self.block.id
+
+                    if motion_audit.type_id == TECHCOMM_PROPOSAL_TYPE_APPROVED:
+                        motion.approved = motion_audit.data.get('approved')
+                        motion.status = 'Approved'
+                    elif motion_audit.type_id == TECHCOMM_PROPOSAL_TYPE_DISAPPROVED:
+                        motion.approved = motion_audit.data.get('approved')
+                        motion.status = 'Disapproved'
+                    elif motion_audit.type_id == TECHCOMM_PROPOSAL_TYPE_EXECUTED:
+                        motion.executed = motion_audit.data.get('executed')
+                        motion.status = 'Executed'
+                    else:
+                        motion.status = '[unknown]'
+
+                    motion.save(db_session)
+
+
+class TechCommProposalVoteBlockProcessor(BlockProcessor):
+
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+
+        for vote_audit in TechCommProposalVoteAudit.query(db_session).filter_by(block_id=self.block.id).order_by('extrinsic_idx'):
+
+            motion = TechCommProposal.query(db_session).filter(
+                TechCommProposal.motion_hash == vote_audit.motion_hash,
+                TechCommProposal.status != 'Disapproved',
+                TechCommProposal.status != 'Executed',
+            ).first()
+
+            if motion:
+
+                try:
+                    vote = TechCommProposalVote.query(db_session).filter_by(
+                        proposal_id=motion.proposal_id,
+                        account_id=vote_audit.data.get('account_id').replace('0x', ''),
+                    ).one()
+
+                    vote.updated_at_block = self.block.id
+
+                except NoResultFound:
+
+                    vote = TechCommProposalVote(
+                        proposal_id=motion.proposal_id,
+                        motion_hash=vote_audit.motion_hash,
+                        created_at_block=self.block.id,
+                        updated_at_block=self.block.id,
+                        account_id=vote_audit.data.get('account_id').replace('0x', ''),
+                    )
+
+                vote.vote = vote_audit.data.get('vote')
+
+                # Update total vote count on motion
+
+                motion.yes_votes_count = vote_audit.data.get('yes_votes_count')
+                motion.no_votes_count = vote_audit.data.get('no_votes_count')
+
+                motion.save(db_session)
+
+                vote.save(db_session)
+
+
+class TreasuryProposalBlockProcessor(BlockProcessor):
+
+    def sequencing_hook(self, db_session, parent_block_data, parent_sequenced_block_data):
+
+        for proposal_audit in TreasuryProposalAudit.query(db_session).filter_by(block_id=self.block.id).order_by('event_idx'):
+
+            if proposal_audit.type_id == TREASURY_PROPOSAL_TYPE_PROPOSED:
+                proposal = TreasuryProposal(
+                    proposal_id=proposal_audit.proposal_id,
+                    proposed_by_account_id=proposal_audit.data.get('proposedBy').replace('0x', ''),
+                    beneficiary_account_id=proposal_audit.data.get('beneficiary').replace('0x', ''),
+                    value=proposal_audit.data.get('value'),
+                    status='Proposed',
+                    created_at_block=self.block.id,
+                    updated_at_block=self.block.id
+                )
+
+                proposal.save(db_session)
+            else:
+
+                proposal = TreasuryProposal.query(db_session).filter(
+                    TreasuryProposal.proposal_id == proposal_audit.proposal_id,
+                    TreasuryProposal.status != 'Awarded',
+                    TreasuryProposal.status != 'Rejected',
+                ).first()
+
+                # Check if proposal exists (otherwise motion is created in event that is not yet processed)
+                if proposal:
+                    proposal.updated_at_block = self.block.id
+
+                    if proposal_audit.type_id == TREASURY_PROPOSAL_TYPE_AWARDED:
+                        proposal.status = 'Awarded'
+                    elif proposal_audit.type_id == TREASURY_PROPOSAL_TYPE_REJECTED:
+                        proposal.status = 'Rejected'
+                        proposal.slash_value = proposal_audit.data.get('slash_value')
+                    else:
+                        proposal.status = '[unknown]'
+
+                    proposal.save(db_session)
 
 
 class AccountIndexBlockProcessor(BlockProcessor):

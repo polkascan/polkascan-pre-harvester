@@ -458,6 +458,84 @@ class CouncilVoteAudit(BaseModel):
     data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
 
 
+class TreasuryProposal(BaseModel):
+    __tablename__ = 'data_treasury_proposal'
+
+    proposal_id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    proposed_by_account_id = sa.Column(sa.String(64), nullable=True)
+    value = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    beneficiary_account_id = sa.Column(sa.String(64), nullable=True)
+    slash_value = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True)
+    status = sa.Column(sa.String(64))
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
+
+
+class TreasuryProposalAudit(BaseModel):
+    __tablename__ = 'data_treasury_proposal_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    proposal_id = sa.Column(sa.Integer(), nullable=False)
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    type_id = sa.Column(sa.Integer(), nullable=False)
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+
+
+class TechCommProposal(BaseModel):
+    __tablename__ = 'data_techcomm_proposal'
+
+    proposal_id = sa.Column(sa.Integer(), primary_key=True, autoincrement=False)
+    motion_hash = sa.Column(sa.String(64), nullable=False, index=True)
+    account_id = sa.Column(sa.String(64), nullable=True)
+    proposal_hash = sa.Column(sa.String(64), nullable=True)
+    proposal = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+    member_threshold = sa.Column(sa.Integer(), nullable=False)
+    yes_votes_count = sa.Column(sa.Integer(), nullable=False)
+    no_votes_count = sa.Column(sa.Integer(), nullable=False)
+    approved = sa.Column(sa.Boolean(), nullable=True)
+    executed = sa.Column(sa.Boolean(), nullable=True)
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
+    status = sa.Column(sa.String(64))
+
+
+class TechCommProposalAudit(BaseModel):
+    __tablename__ = 'data_techcomm_proposal_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    motion_hash = sa.Column(sa.String(64))
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    type_id = sa.Column(sa.Integer(), nullable=False)
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+
+
+class TechCommProposalVote(BaseModel):
+    __tablename__ = 'data_techcomm_proposal_vote'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    proposal_id = sa.Column(sa.Integer(), nullable=True, index=True)
+    motion_hash = sa.Column(sa.String(64), index=True)
+    account_id = sa.Column(sa.String(64), index=True)
+    vote = sa.Column(sa.Boolean())
+    created_at_block = sa.Column(sa.Integer(), nullable=False)
+    updated_at_block = sa.Column(sa.Integer(), nullable=False)
+
+
+class TechCommProposalVoteAudit(BaseModel):
+    __tablename__ = 'data_techcomm_proposal_vote_audit'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    motion_hash = sa.Column(sa.String(64))
+    block_id = sa.Column(sa.Integer(), index=True, nullable=False)
+    extrinsic_idx = sa.Column(sa.Integer())
+    event_idx = sa.Column(sa.Integer())
+    data = sa.Column(sa.JSON(), default=None, server_default=None, nullable=True)
+
+
 class Contract(BaseModel):
     __tablename__ = 'data_contract'
 
