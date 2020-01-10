@@ -24,7 +24,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.models.harvester import Status
 from app.processors import NewSessionEventProcessor, Log
-from app.type_registry import load_type_registry
 from scalecodec import U32
 from scalecodec.base import ScaleBytes, ScaleDecoder, RuntimeConfiguration
 from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
@@ -32,6 +31,7 @@ from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, ExtrinsicsBlock61181Decoder
 
 from app.processors.base import BaseService, ProcessorRegistry
+from scalecodec.type_registry import load_type_registry_preset
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
@@ -57,9 +57,9 @@ class PolkascanHarvesterService(BaseService):
 
     def __init__(self, db_session, type_registry='default'):
         self.db_session = db_session
-        RuntimeConfiguration().update_type_registry(load_type_registry('default'))
+        RuntimeConfiguration().update_type_registry(load_type_registry_preset('default'))
         if type_registry != 'default':
-            RuntimeConfiguration().update_type_registry(load_type_registry(type_registry))
+            RuntimeConfiguration().update_type_registry(load_type_registry_preset(type_registry))
         self.metadata_store = {}
 
     def process_genesis(self, block):
