@@ -518,6 +518,9 @@ class PolkascanHarvesterService(BaseService):
         # Get spec version
         spec_version = json_runtime_version.get('specVersion', 0)
 
+        # Update runtime configuration
+        RuntimeConfiguration().set_active_spec_version_id(spec_version)
+
         self.process_metadata(json_runtime_version, block_hash)
 
         # ==== Get parent block runtime ===================
@@ -680,7 +683,7 @@ class PolkascanHarvesterService(BaseService):
                 era=extrinsic_data.get('era'),
                 call=extrinsic_data.get('call_code'),
                 module_id=extrinsic_data.get('call_module'),
-                call_id=extrinsic_data.get('call_module_function'),
+                call_id=extrinsic_data.get('call_function'),
                 params=extrinsic_data.get('params'),
                 spec_version_id=parent_spec_version,
                 success=int(extrinsic_success),
