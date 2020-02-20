@@ -1,6 +1,6 @@
 #  Polkascan PRE Harvester
 #
-#  Copyright 2018-2019 openAware BV (NL).
+#  Copyright 2018-2020 openAware BV (NL).
 #  This file is part of Polkascan.
 #
 #  Polkascan is free software: you can redistribute it and/or modify
@@ -20,20 +20,14 @@
 #
 from packaging import version
 
-from app.models.data import Account, AccountIndex, DemocracyProposal, Contract, Session, AccountAudit, \
-    AccountIndexAudit, DemocracyProposalAudit, SessionTotal, SessionValidator, DemocracyReferendumAudit, RuntimeStorage, \
-    SessionNominator, RuntimeCall, CouncilMotionAudit, CouncilVoteAudit, TechCommProposalAudit, \
-    TechCommProposalVoteAudit, TreasuryProposalAudit
+from app.models.data import Contract, Session, AccountAudit, AccountIndexAudit, SessionTotal, SessionValidator, \
+    SessionNominator, RuntimeCall, IdentityAudit, IdentityJudgementAudit, RuntimeStorage
 from app.processors.base import EventProcessor
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
-    ACCOUNT_INDEX_AUDIT_TYPE_REAPED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED, DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED, \
-    SUBSTRATE_RPC_URL, DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED, \
-    DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED, DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED, \
-    DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED, LEGACY_SESSION_VALIDATOR_LOOKUP, SUBSTRATE_METADATA_VERSION, \
-    COUNCIL_MOTION_TYPE_PROPOSED, COUNCIL_MOTION_TYPE_APPROVED, COUNCIL_MOTION_TYPE_DISAPPROVED, \
-    COUNCIL_MOTION_TYPE_EXECUTED, TECHCOMM_PROPOSAL_TYPE_PROPOSED, TECHCOMM_PROPOSAL_TYPE_APPROVED, \
-    TECHCOMM_PROPOSAL_TYPE_DISAPPROVED, TECHCOMM_PROPOSAL_TYPE_EXECUTED, TREASURY_PROPOSAL_TYPE_PROPOSED, \
-    TREASURY_PROPOSAL_TYPE_AWARDED, TREASURY_PROPOSAL_TYPE_REJECTED
+    ACCOUNT_INDEX_AUDIT_TYPE_REAPED, SUBSTRATE_RPC_URL, LEGACY_SESSION_VALIDATOR_LOOKUP, SEARCH_INDEX_SLASHED_ACCOUNT, \
+    SEARCH_INDEX_BALANCETRANSFER, SEARCH_INDEX_HEARTBEATRECEIVED, SUBSTRATE_METADATA_VERSION, \
+    IDENTITY_TYPE_SET, IDENTITY_TYPE_CLEARED, IDENTITY_TYPE_KILLED, IDENTITY_JUDGEMENT_TYPE_GIVEN
+
 from app.utils.ss58 import ss58_encode
 from scalecodec import ScaleBytes, Proposal
 from scalecodec.base import ScaleDecoder
@@ -458,685 +452,6 @@ class NewAccountIndexEventProcessor(EventProcessor):
         for item in AccountIndexAudit.query(db_session).filter_by(block_id=self.block.id):
             db_session.delete(item)
 
-
-class ProposedEventProcessor(EventProcessor):
-
-    module_id = 'democracy'
-    event_id = 'Proposed'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 2 and \
-                self.event.attributes[0]['type'] == 'PropIndex' and self.event.attributes[1]['type'] == 'Balance':
-
-            proposal_audit = DemocracyProposalAudit(
-                democracy_proposal_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=DEMOCRACY_PROPOSAL_AUDIT_TYPE_PROPOSED
-            )
-
-            proposal_audit.data = {'bond': self.event.attributes[1]['value'], 'proposal': None}
-
-            for param in self.extrinsic.params:
-                if param.get('name') == 'proposal':
-                    proposal_audit.data['proposal'] = param.get('value')
-
-            proposal_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class DemocracyTabledEventProcessor(EventProcessor):
-
-    module_id = 'democracy'
-    event_id = 'Tabled'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 3 and self.event.attributes[0]['type'] == 'PropIndex' \
-                and self.event.attributes[1]['type'] == 'Balance' and \
-                self.event.attributes[2]['type'] == 'Vec<AccountId>':
-
-            proposal_audit = DemocracyProposalAudit(
-                democracy_proposal_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=DEMOCRACY_PROPOSAL_AUDIT_TYPE_TABLED
-            )
-            proposal_audit.data = {'bond': self.event.attributes[1]['value'], 'proposal': None}
-
-            proposal_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in DemocracyProposalAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class DemocracyStartedProcessor(EventProcessor):
-
-    module_id = 'democracy'
-    event_id = 'Started'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 2 and \
-                self.event.attributes[0]['type'] == 'ReferendumIndex' and \
-                self.event.attributes[1]['type'] == 'VoteThreshold':
-
-            # Retrieve proposal from storage
-            substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
-            storage_call = RuntimeStorage.query(db_session).filter_by(
-                module_id='democracy',
-                name='ReferendumInfoOf',
-            ).order_by(RuntimeStorage.spec_version.desc()).first()
-
-            proposal = substrate.get_storage(
-                block_hash=self.block.hash,
-                module='Democracy',
-                function='ReferendumInfoOf',
-                params=self.event.attributes[0]['valueRaw'],
-                return_scale_type=storage_call.type_value,
-                hasher=storage_call.type_hasher,
-                metadata=self.metadata,
-                metadata_version=SUBSTRATE_METADATA_VERSION
-            )
-
-            if proposal.get('proposalHash'):
-                # Retrieve proposal by hash
-                substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
-                storage_call = RuntimeStorage.query(db_session).filter_by(
-                    module_id='democracy',
-                    name='Preimages',
-                ).order_by(RuntimeStorage.spec_version.desc()).first()
-
-                proposal_preimage = substrate.get_storage(
-                    block_hash=self.block.hash,
-                    module='Democracy',
-                    function='Preimages',
-                    params=proposal.get('proposalHash').replace('0x', ''),
-                    return_scale_type=storage_call.type_value,
-                    hasher=storage_call.type_hasher,
-                    metadata=self.metadata,
-                    metadata_version=SUBSTRATE_METADATA_VERSION
-                )
-
-                if proposal_preimage:
-                    proposal.update(proposal_preimage)
-
-                if proposal.get('proposal') and proposal['proposal'].get('call_index'):
-                    # Retrieve the documentation of the proposal call
-                    call_data = self.metadata.call_index.get(proposal['proposal'].get('call_index'))
-
-                    if call_data:
-                        proposal['proposal']['call_documentation'] = '\n'.join(call_data[1].docs)
-
-            referendum_audit = DemocracyReferendumAudit(
-                democracy_referendum_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_STARTED,
-                data={
-                    'vote_threshold': self.event.attributes[1]['value'],
-                    'ReferendumIndex': self.event.attributes[0]['valueRaw'],
-                    'proposal': proposal
-                }
-            )
-
-            referendum_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class DemocracyPassedProcessor(EventProcessor):
-
-    module_id = 'democracy'
-    event_id = 'Passed'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 1 and \
-                self.event.attributes[0]['type'] == 'ReferendumIndex':
-
-            referendum_audit = DemocracyReferendumAudit(
-                democracy_referendum_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_PASSED
-            )
-
-            referendum_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class DemocracyNotPassedProcessor(EventProcessor):
-
-    module_id = 'democracy'
-    event_id = 'NotPassed'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 1 and \
-                self.event.attributes[0]['type'] == 'ReferendumIndex':
-
-            referendum_audit = DemocracyReferendumAudit(
-                democracy_referendum_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_NOTPASSED
-            )
-
-            referendum_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class DemocracyCancelledProcessor(EventProcessor):
-
-    module_id = 'democracy'
-    event_id = 'Cancelled'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 1 and \
-                self.event.attributes[0]['type'] == 'ReferendumIndex':
-
-            referendum_audit = DemocracyReferendumAudit(
-                democracy_referendum_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_CANCELLED
-            )
-
-            referendum_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class DemocracyExecutedProcessor(EventProcessor):
-
-    module_id = 'democracy'
-    event_id = 'Executed'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 2 and \
-                self.event.attributes[0]['type'] == 'ReferendumIndex' and \
-                self.event.attributes[1]['type'] == 'bool':
-
-            referendum_audit = DemocracyReferendumAudit(
-                democracy_referendum_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=DEMOCRACY_REFERENDUM_AUDIT_TYPE_EXECUTED,
-                data={'success': self.event.attributes[1]['value']}
-            )
-
-            referendum_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in DemocracyReferendumAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class CouncilMotionProposedEventProcessor(EventProcessor):
-
-    module_id = 'council'
-    event_id = 'Proposed'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 4 and \
-                self.event.attributes[0]['type'] == 'AccountId' and \
-                self.event.attributes[1]['type'] == 'ProposalIndex' and \
-                self.event.attributes[2]['type'] == 'Hash' and \
-                self.event.attributes[3]['type'] == 'MemberCount':
-
-            motion_audit = CouncilMotionAudit(
-                motion_hash=self.event.attributes[2]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=COUNCIL_MOTION_TYPE_PROPOSED
-            )
-
-            motion_audit.data = {
-                'proposalIndex': self.event.attributes[1]['value'],
-                'proposedBy': self.event.attributes[0]['value'],
-                'threshold': self.event.attributes[3]['value'],
-                'proposal': None
-            }
-
-            for param in self.extrinsic.params:
-                if param.get('name') == 'proposal':
-                    motion_audit.data['proposal'] = param.get('value')
-
-            motion_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class CouncilMotionApprovedEventProcessor(EventProcessor):
-
-    module_id = 'council'
-    event_id = 'Approved'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 1 and self.event.attributes[0]['type'] == 'Hash':
-
-            motion_audit = CouncilMotionAudit(
-                motion_hash=self.event.attributes[0]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=COUNCIL_MOTION_TYPE_APPROVED
-            )
-
-            motion_audit.data = {
-                'approved': True
-            }
-
-            motion_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class CouncilMotionDisapprovedEventProcessor(EventProcessor):
-
-    module_id = 'council'
-    event_id = 'Disapproved'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 1 and self.event.attributes[0]['type'] == 'Hash':
-
-            motion_audit = CouncilMotionAudit(
-                motion_hash=self.event.attributes[0]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=COUNCIL_MOTION_TYPE_DISAPPROVED
-            )
-
-            motion_audit.data = {
-                'approved': False
-            }
-
-            motion_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class CouncilMotionExecutedEventProcessor(EventProcessor):
-
-    module_id = 'council'
-    event_id = 'Executed'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 2 and \
-                self.event.attributes[0]['type'] == 'Hash' and \
-                self.event.attributes[1]['type'] == 'bool':
-
-            motion_audit = CouncilMotionAudit(
-                motion_hash=self.event.attributes[0]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=COUNCIL_MOTION_TYPE_EXECUTED
-            )
-
-            motion_audit.data = {
-                'executed': True
-            }
-
-            motion_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in CouncilMotionAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class CouncilMotionVotedEventProcessor(EventProcessor):
-
-    module_id = 'council'
-    event_id = 'Voted'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 5 and \
-                self.event.attributes[0]['type'] == 'AccountId' and \
-                self.event.attributes[1]['type'] == 'Hash' and \
-                self.event.attributes[2]['type'] == 'bool' and \
-                self.event.attributes[3]['type'] == 'MemberCount' and \
-                self.event.attributes[4]['type'] == 'MemberCount':
-
-            vote_audit = CouncilVoteAudit(
-                motion_hash=self.event.attributes[1]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx
-            )
-
-            vote_audit.data = {
-                'vote': self.event.attributes[2]['value'],
-                'account_id': self.event.attributes[0]['value'],
-                'yes_votes_count': self.event.attributes[3]['value'],
-                'no_votes_count': self.event.attributes[4]['value']
-            }
-
-            vote_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in CouncilVoteAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class TechCommProposedEventProcessor(EventProcessor):
-
-    module_id = 'technicalcommittee'
-    event_id = 'Proposed'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 4 and \
-                self.event.attributes[0]['type'] == 'AccountId' and \
-                self.event.attributes[1]['type'] == 'ProposalIndex' and \
-                self.event.attributes[2]['type'] == 'Hash' and \
-                self.event.attributes[3]['type'] == 'MemberCount':
-
-            motion_audit = TechCommProposalAudit(
-                motion_hash=self.event.attributes[2]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=TECHCOMM_PROPOSAL_TYPE_PROPOSED
-            )
-
-            motion_audit.data = {
-                'proposalIndex': self.event.attributes[1]['value'],
-                'proposedBy': self.event.attributes[0]['value'],
-                'threshold': self.event.attributes[3]['value'],
-                'proposal': None
-            }
-
-            for param in self.extrinsic.params:
-                if param.get('name') == 'proposal':
-                    motion_audit.data['proposal'] = param.get('value')
-
-            motion_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in TechCommProposalAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class TechCommApprovedEventProcessor(EventProcessor):
-
-    module_id = 'technicalcommittee'
-    event_id = 'Approved'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 1 and self.event.attributes[0]['type'] == 'Hash':
-
-            motion_audit = TechCommProposalAudit(
-                motion_hash=self.event.attributes[0]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=TECHCOMM_PROPOSAL_TYPE_APPROVED
-            )
-
-            motion_audit.data = {
-                'approved': True
-            }
-
-            motion_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in TechCommProposalAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class TechCommDisapprovedEventProcessor(EventProcessor):
-
-    module_id = 'technicalcommittee'
-    event_id = 'Disapproved'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 1 and self.event.attributes[0]['type'] == 'Hash':
-
-            motion_audit = TechCommProposalAudit(
-                motion_hash=self.event.attributes[0]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=TECHCOMM_PROPOSAL_TYPE_DISAPPROVED
-            )
-
-            motion_audit.data = {
-                'approved': False
-            }
-
-            motion_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in TechCommProposalAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class TechCommExecutedEventProcessor(EventProcessor):
-
-    module_id = 'technicalcommittee'
-    event_id = 'Executed'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 2 and \
-                self.event.attributes[0]['type'] == 'Hash' and \
-                self.event.attributes[1]['type'] == 'bool':
-
-            motion_audit = TechCommProposalAudit(
-                motion_hash=self.event.attributes[0]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=TECHCOMM_PROPOSAL_TYPE_EXECUTED
-            )
-
-            motion_audit.data = {
-                'executed': True
-            }
-
-            motion_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in TechCommProposalAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class TechCommVotedEventProcessor(EventProcessor):
-
-    module_id = 'technicalcommittee'
-    event_id = 'Voted'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 5 and \
-                self.event.attributes[0]['type'] == 'AccountId' and \
-                self.event.attributes[1]['type'] == 'Hash' and \
-                self.event.attributes[2]['type'] == 'bool' and \
-                self.event.attributes[3]['type'] == 'MemberCount' and \
-                self.event.attributes[4]['type'] == 'MemberCount':
-
-            vote_audit = TechCommProposalVoteAudit(
-                motion_hash=self.event.attributes[1]['value'].replace('0x', ''),
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx
-            )
-
-            vote_audit.data = {
-                'vote': self.event.attributes[2]['value'],
-                'account_id': self.event.attributes[0]['value'],
-                'yes_votes_count': self.event.attributes[3]['value'],
-                'no_votes_count': self.event.attributes[4]['value']
-            }
-
-            vote_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in TechCommProposalVoteAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class TreasuryProposedEventProcessor(EventProcessor):
-
-    module_id = 'treasury'
-    event_id = 'Proposed'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 1 and \
-                self.event.attributes[0]['type'] == 'ProposalIndex':
-
-            proposal_audit = TreasuryProposalAudit(
-                proposal_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=TREASURY_PROPOSAL_TYPE_PROPOSED
-            )
-
-            proposal_audit.data = {
-                'proposedBy': self.extrinsic.address,
-                'beneficiary': None,
-                'value': None
-            }
-
-            for param in self.extrinsic.params:
-                if param.get('name') == 'value':
-                    proposal_audit.data['value'] = param.get('value')
-
-                if param.get('name') == 'beneficiary':
-                    proposal_audit.data['beneficiary'] = param.get('value')
-
-            proposal_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in TreasuryProposalAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class TreasuryAwardedEventProcessor(EventProcessor):
-
-    module_id = 'treasury'
-    event_id = 'Awarded'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 3 and \
-                self.event.attributes[0]['type'] == 'ProposalIndex' and \
-                self.event.attributes[1]['type'] == 'Balance' and \
-                self.event.attributes[2]['type'] == 'AccountId':
-
-            proposal_audit = TreasuryProposalAudit(
-                proposal_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=TREASURY_PROPOSAL_TYPE_AWARDED
-            )
-
-            proposal_audit.data = {
-                'beneficiary': self.event.attributes[2]['value'].replace('0x', ''),
-                'value': self.event.attributes[1]['value']
-            }
-
-            proposal_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in TreasuryProposalAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
-class TreasuryRejectedEventProcessor(EventProcessor):
-
-    module_id = 'treasury'
-    event_id = 'Rejected'
-
-    def accumulation_hook(self, db_session):
-
-        # Check event requirements
-        if len(self.event.attributes) == 2 and \
-                self.event.attributes[0]['type'] == 'ProposalIndex' and \
-                self.event.attributes[1]['type'] == 'Balance':
-
-            proposal_audit = TreasuryProposalAudit(
-                proposal_id=self.event.attributes[0]['value'],
-                block_id=self.event.block_id,
-                extrinsic_idx=self.event.extrinsic_idx,
-                event_idx=self.event.event_idx,
-                type_id=TREASURY_PROPOSAL_TYPE_REJECTED
-            )
-
-            proposal_audit.data = {
-                'slash_value': self.event.attributes[1]['value']
-            }
-
-            proposal_audit.save(db_session)
-
-    def accumulation_revert(self, db_session):
-        for item in TreasuryProposalAudit.query(db_session).filter_by(block_id=self.block.id):
-            db_session.delete(item)
-
-
 class CodeStoredEventProcessor(EventProcessor):
 
     module_id = 'contract'
@@ -1161,4 +476,188 @@ class CodeStoredEventProcessor(EventProcessor):
 
     def accumulation_revert(self, db_session):
         for item in Contract.query(db_session).filter_by(created_at_block=self.block.id):
+            db_session.delete(item)
+
+
+class SlashEventProcessor(EventProcessor):
+
+    module_id = 'staking'
+    event_id = 'Slash'
+
+    def process_search_index(self, db_session):
+
+        search_index = self.add_search_index(
+            index_type_id=SEARCH_INDEX_SLASHED_ACCOUNT,
+            account_id=self.event.attributes[0]['value'].replace('0x', ''),
+            sorting_value=self.event.attributes[1]['value']
+        )
+
+        db_session.add(search_index)
+
+
+class BalancesTransferProcessor(EventProcessor):
+    module_id = 'balances'
+    event_id = 'Transfer'
+
+    def process_search_index(self, db_session):
+        search_index = self.add_search_index(
+            index_type_id=SEARCH_INDEX_BALANCETRANSFER,
+            account_id=self.event.attributes[0]['value'].replace('0x', ''),
+            sorting_value=self.event.attributes[2]['value']
+        )
+
+        db_session.add(search_index)
+
+        search_index = self.add_search_index(
+            index_type_id=SEARCH_INDEX_BALANCETRANSFER,
+            account_id=self.event.attributes[1]['value'].replace('0x', ''),
+            sorting_value=self.event.attributes[2]['value']
+        )
+
+        db_session.add(search_index)
+
+
+class HeartbeatReceivedEventProcessor(EventProcessor):
+
+    module_id = 'imonline'
+    event_id = 'HeartbeatReceived'
+
+    def process_search_index(self, db_session):
+
+        search_index = self.add_search_index(
+            index_type_id=SEARCH_INDEX_HEARTBEATRECEIVED,
+            account_id=self.event.attributes[0]['value'].replace('0x', ''),
+            sorting_value=None
+        )
+
+        db_session.add(search_index)
+
+
+class IdentitySetEventProcessor(EventProcessor):
+
+    module_id = 'identity'
+    event_id = 'IdentitySet'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 1 and \
+                self.event.attributes[0]['type'] == 'AccountId':
+
+            identity_audit = IdentityAudit(
+                account_id=self.event.attributes[0]['value'].replace('0x', ''),
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=IDENTITY_TYPE_SET
+            )
+
+            identity_audit.data = {
+                'display': None,
+                'email': None,
+                'legal': None,
+                'riot': None,
+                'web': None,
+                'twitter': None
+            }
+
+            for param in self.extrinsic.params:
+                if param.get('name') == 'info':
+                    identity_audit.data['display'] = param.get('value', {}).get('display', {}).get('Raw')
+                    identity_audit.data['email'] = param.get('value', {}).get('email', {}).get('Raw')
+                    identity_audit.data['legal'] = param.get('value', {}).get('legal', {}).get('Raw')
+                    identity_audit.data['web'] = param.get('value', {}).get('web', {}).get('Raw')
+                    identity_audit.data['riot'] = param.get('value', {}).get('riot', {}).get('Raw')
+                    identity_audit.data['twitter'] = param.get('value', {}).get('twitter', {}).get('Raw')
+
+            identity_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in IdentityAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
+
+class IdentityClearedEventProcessor(EventProcessor):
+
+    module_id = 'identity'
+    event_id = 'IdentityCleared'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 2 and \
+                self.event.attributes[0]['type'] == 'AccountId' and \
+                self.event.attributes[1]['type'] == 'Balance':
+
+            identity_audit = IdentityAudit(
+                account_id=self.event.attributes[0]['value'].replace('0x', ''),
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=IDENTITY_TYPE_CLEARED
+            )
+
+            identity_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in IdentityAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
+
+class IdentityKilledEventProcessor(EventProcessor):
+
+    module_id = 'identity'
+    event_id = 'IdentityKilled'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 2 and \
+                self.event.attributes[0]['type'] == 'AccountId' and \
+                self.event.attributes[1]['type'] == 'Balance':
+
+            identity_audit = IdentityAudit(
+                account_id=self.event.attributes[0]['value'].replace('0x', ''),
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=IDENTITY_TYPE_KILLED
+            )
+
+            identity_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in IdentityAudit.query(db_session).filter_by(block_id=self.block.id):
+            db_session.delete(item)
+
+
+class IdentityJudgementGivenEventProcessor(EventProcessor):
+
+    module_id = 'identity'
+    event_id = 'JudgementGiven'
+
+    def accumulation_hook(self, db_session):
+
+        # Check event requirements
+        if len(self.event.attributes) == 2 and \
+                self.event.attributes[0]['type'] == 'AccountId' and \
+                self.event.attributes[1]['type'] == 'RegistrarIndex':
+
+            identity_audit = IdentityJudgementAudit(
+                account_id=self.event.attributes[0]['value'].replace('0x', ''),
+                registrar_index=self.event.attributes[1]['value'],
+                block_id=self.event.block_id,
+                extrinsic_idx=self.event.extrinsic_idx,
+                event_idx=self.event.event_idx,
+                type_id=IDENTITY_JUDGEMENT_TYPE_GIVEN
+            )
+
+            for param in self.extrinsic.params:
+                if param.get('name') == 'judgement':
+                    identity_audit.data = {'judgement': list(param.get('value').keys())[0]}
+
+            identity_audit.save(db_session)
+
+    def accumulation_revert(self, db_session):
+        for item in IdentityJudgementAudit.query(db_session).filter_by(block_id=self.block.id):
             db_session.delete(item)

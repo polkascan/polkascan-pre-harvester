@@ -1,6 +1,6 @@
 #  Polkascan PRE Harvester
 #
-#  Copyright 2018-2019 openAware BV (NL).
+#  Copyright 2018-2020 openAware BV (NL).
 #  This file is part of Polkascan.
 #
 #  Polkascan is free software: you can redistribute it and/or modify
@@ -17,13 +17,14 @@
 #  along with Polkascan. If not, see <http://www.gnu.org/licenses/>.
 #
 #  converters.py
+import json
 import math
 
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models.harvester import Status
-from app.processors import NewSessionEventProcessor, Log
+from app.processors import NewSessionEventProcessor, Log, SlashEventProcessor, BalancesTransferProcessor
 from scalecodec import U32
 from scalecodec.base import ScaleBytes, ScaleDecoder, RuntimeConfiguration
 from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
@@ -35,7 +36,8 @@ from scalecodec.type_registry import load_type_registry_preset
 from substrateinterface import SubstrateInterface, SubstrateRequestException
 
 from app.settings import DEBUG, SUBSTRATE_RPC_URL, ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
-    SUBSTRATE_MOCK_EXTRINSICS, FINALIZATION_BY_BLOCK_CONFIRMATIONS, SUBSTRATE_METADATA_VERSION
+    SUBSTRATE_MOCK_EXTRINSICS, FINALIZATION_BY_BLOCK_CONFIRMATIONS, SEARCH_INDEX_SLASHED_ACCOUNT, \
+    SEARCH_INDEX_BALANCETRANSFER, SUBSTRATE_METADATA_VERSION
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
     AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog, RuntimeErrorMessage
@@ -57,89 +59,62 @@ class PolkascanHarvesterService(BaseService):
 
     def __init__(self, db_session, type_registry='default'):
         self.db_session = db_session
-        RuntimeConfiguration().update_type_registry(load_type_registry_preset('default'))
-        if type_registry != 'default':
-            RuntimeConfiguration().update_type_registry(load_type_registry_preset(type_registry))
+        self.substrate = SubstrateInterface(SUBSTRATE_RPC_URL, type_registry_preset=type_registry)
         self.metadata_store = {}
 
     def process_genesis(self, block):
-        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
 
         # Set block time of parent block
         child_block = Block.query(self.db_session).filter_by(parent_hash=block.hash).first()
         block.set_datetime(child_block.datetime)
 
         # Retrieve genesis accounts
-        storage_call = RuntimeStorage.query(self.db_session).filter_by(
-            module_id='indices',
-            name='NextEnumSet',
-            spec_version=block.spec_version_id
-        ).first()
+        genesis_account_page_count = self.substrate.get_runtime_state(
+            module="Indices",
+            storage_function="NextEnumSet",
+            block_hash=block.hash
+        ).get('result', 0)
 
-        if storage_call:
-            genesis_account_page_count = substrate.get_storage(
-                block_hash=block.hash,
+        # Get Accounts on EnumSet
+        block.count_accounts_new = 0
+        block.count_accounts = 0
+
+        for enum_set_nr in range(0, genesis_account_page_count + 1):
+
+            genesis_accounts = self.substrate.get_runtime_state(
                 module="Indices",
-                function="NextEnumSet",
-                return_scale_type=storage_call.get_return_type(),
-                hasher=storage_call.type_hasher,
-                metadata_version=SUBSTRATE_METADATA_VERSION
-            ) or 0
+                storage_function="EnumSet",
+                params=[enum_set_nr],
+                block_hash=block.hash
+            ).get('result')
 
-            # Get Accounts on EnumSet
-            storage_call = RuntimeStorage.query(self.db_session).filter_by(
-                module_id='indices',
-                name='EnumSet',
-                spec_version=block.spec_version_id
-            ).first()
+            if genesis_accounts:
+                block.count_accounts_new += len(genesis_accounts)
+                block.count_accounts += len(genesis_accounts)
 
-            if storage_call:
-
-                block.count_accounts_new = 0
-                block.count_accounts = 0
-
-                for enum_set_nr in range(0, genesis_account_page_count + 1):
-
-                    account_index_u32 = U32()
-                    account_index_u32.encode(enum_set_nr)
-
-                    genesis_accounts = substrate.get_storage(
-                        block_hash=block.hash,
-                        module="Indices",
-                        function="EnumSet",
-                        params=account_index_u32.data.data.hex(),
-                        return_scale_type=storage_call.get_return_type(),
-                        hasher=storage_call.type_hasher,
-                        metadata_version=SUBSTRATE_METADATA_VERSION
+                for idx, account_id in enumerate(genesis_accounts):
+                    account_audit = AccountAudit(
+                        account_id=account_id.replace('0x', ''),
+                        block_id=block.id,
+                        extrinsic_idx=None,
+                        event_idx=None,
+                        type_id=ACCOUNT_AUDIT_TYPE_NEW
                     )
 
-                    if genesis_accounts:
-                        block.count_accounts_new += len(genesis_accounts)
-                        block.count_accounts += len(genesis_accounts)
+                    account_audit.save(self.db_session)
 
-                        for idx, account_id in enumerate(genesis_accounts):
-                            account_audit = AccountAudit(
-                                account_id=account_id.replace('0x', ''),
-                                block_id=block.id,
-                                extrinsic_idx=None,
-                                event_idx=None,
-                                type_id=ACCOUNT_AUDIT_TYPE_NEW
-                            )
+                    account_index_id = enum_set_nr * 64 + idx
 
-                            account_audit.save(self.db_session)
+                    account_index_audit = AccountIndexAudit(
+                        account_index_id=account_index_id,
+                        account_id=account_id.replace('0x', ''),
+                        block_id=block.id,
+                        extrinsic_idx=None,
+                        event_idx=None,
+                        type_id=ACCOUNT_INDEX_AUDIT_TYPE_NEW
+                    )
 
-                            account_index_id = enum_set_nr * 64 + idx
-
-                            account_index_audit = AccountIndexAudit(
-                                account_index_id=account_index_id,
-                                account_id=account_id.replace('0x', ''),
-                                block_id=block.id,
-                                extrinsic_idx=None,
-                                event_idx=None,
-                                type_id=ACCOUNT_INDEX_AUDIT_TYPE_NEW
-                            )
-
-                            account_index_audit.save(self.db_session)
+                    account_index_audit.save(self.db_session)
 
         block.save(self.db_session)
 
@@ -147,64 +122,22 @@ class PolkascanHarvesterService(BaseService):
         initial_session_event = NewSessionEventProcessor(block, Event(), None)
         initial_session_event.add_session(db_session=self.db_session, session_id=0)
 
-    def process_metadata_type(self, type_string, spec_version):
-
-        runtime_type = RuntimeType.query(self.db_session).filter_by(type_string=type_string, spec_version=spec_version).first()
-
-        if not runtime_type:
-
-            # Get current Runtime configuration
-            try:
-                # TODO move logic to RuntimeConfiguration.get_decoder_class
-                # TODO FIX ScaleBytes('0x00') does not process Option<*> properly
-                decoder_obj = ScaleDecoder.get_decoder_class(type_string, ScaleBytes('0x00'))
-
-                if decoder_obj.sub_type:
-
-                    # Also process sub type
-                    if ',' in decoder_obj.sub_type and decoder_obj.sub_type[-1:] not in ['>', ')']:
-                        for sub_type in decoder_obj.sub_type.split(','):
-                            self.process_metadata_type(sub_type.strip(), spec_version)
-                    else:
-                        self.process_metadata_type(decoder_obj.sub_type, spec_version)
-
-                decoder_class_name = decoder_obj.__class__.__name__
-
-            except NotImplementedError:
-                decoder_class_name = '[not implemented]'
-
-            runtime_type = RuntimeType(
-                spec_version=spec_version,
-                type_string=type_string,
-                decoder_class=decoder_class_name,
-            )
-
-            runtime_type.save(self.db_session)
-
-    def process_metadata(self, runtime_version_data, block_hash):
-
-        spec_version = runtime_version_data.get('specVersion', 0)
+    def process_metadata(self, spec_version, block_hash):
 
         # Check if metadata already in store
         if spec_version not in self.metadata_store:
             print('Metadata: CACHE MISS', spec_version)
 
+            runtime_version_data = self.substrate.get_block_runtime_version(block_hash)
+
             runtime = Runtime.query(self.db_session).get(spec_version)
 
             if runtime:
-
-                metadata_decoder = MetadataDecoder(ScaleBytes(runtime.json_metadata))
-                metadata_decoder.decode()
-
-                self.metadata_store[spec_version] = metadata_decoder
+                self.metadata_store[spec_version] = self.substrate.get_block_metadata(block_hash=block_hash)
 
             else:
                 self.db_session.begin(subtransactions=True)
                 try:
-
-                    # ==== Get block Metadata from Substrate ==================
-                    substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
-                    metadata_decoder = substrate.get_block_metadata(block_hash)
 
                     # Store metadata in database
                     runtime = Runtime(
@@ -213,13 +146,13 @@ class PolkascanHarvesterService(BaseService):
                         impl_version=runtime_version_data["implVersion"],
                         spec_name=runtime_version_data["specName"],
                         spec_version=spec_version,
-                        json_metadata=str(metadata_decoder.data),
-                        json_metadata_decoded=metadata_decoder.value,
+                        json_metadata=str(self.substrate.metadata_decoder.data),
+                        json_metadata_decoded=self.substrate.metadata_decoder.value,
                         apis=runtime_version_data["apis"],
                         authoring_version=runtime_version_data["authoringVersion"],
                         count_call_functions=0,
                         count_events=0,
-                        count_modules=len(metadata_decoder.metadata.modules),
+                        count_modules=len(self.substrate.metadata_decoder.metadata.modules),
                         count_storage_functions=0,
                         count_constants=0,
                         count_errors=0
@@ -227,52 +160,74 @@ class PolkascanHarvesterService(BaseService):
 
                     runtime.save(self.db_session)
 
-                    print('store version to db', metadata_decoder.version)
+                    print('store version to db', self.substrate.metadata_decoder.version)
 
-                    if not metadata_decoder.version:
-                        # Legacy V0 fallback
-                        for module in metadata_decoder.metadata.modules:
-                            runtime_module = RuntimeModule(
-                                spec_version=spec_version,
-                                module_id=module.get_identifier(),
-                                prefix=module.prefix,
-                                name=module.get_identifier(),
-                                count_call_functions=len(module.functions or []),
-                                count_storage_functions=len(module.storage or []),
-                                count_events=0
-                            )
-                            runtime_module.save(self.db_session)
+                    for module in self.substrate.metadata_decoder.metadata.modules:
 
-                            if len(module.functions or []) > 0:
-                                for idx, call in enumerate(module.functions):
-                                    runtime_call = RuntimeCall(
-                                        spec_version=spec_version,
-                                        module_id=module.get_identifier(),
-                                        call_id=call.get_identifier(),
-                                        index=idx,
-                                        name=call.name,
-                                        lookup=call.lookup,
-                                        documentation='\n'.join(call.docs),
-                                        count_params=len(call.args)
+                        # Check if module exists
+                        if RuntimeModule.query(self.db_session).filter_by(
+                            spec_version=spec_version,
+                            module_id=module.get_identifier()
+                        ).count() == 0:
+                            module_id = module.get_identifier()
+                        else:
+                            module_id = '{}_1'.format(module.get_identifier())
+
+                        # Storage backwards compt check
+                        if module.storage and isinstance(module.storage, list):
+                            storage_functions = module.storage
+                        elif module.storage and isinstance(getattr(module.storage, 'value'), dict):
+                            storage_functions = module.storage.items
+                        else:
+                            storage_functions = []
+
+                        runtime_module = RuntimeModule(
+                            spec_version=spec_version,
+                            module_id=module_id,
+                            prefix=module.prefix,
+                            name=module.name,
+                            count_call_functions=len(module.calls or []),
+                            count_storage_functions=len(storage_functions),
+                            count_events=len(module.events or []),
+                            count_constants=len(module.constants or []),
+                            count_errors=len(module.errors or []),
+                        )
+                        runtime_module.save(self.db_session)
+
+                        # Update totals in runtime
+                        runtime.count_call_functions += runtime_module.count_call_functions
+                        runtime.count_events += runtime_module.count_events
+                        runtime.count_storage_functions += runtime_module.count_storage_functions
+                        runtime.count_constants += runtime_module.count_constants
+                        runtime.count_errors += runtime_module.count_errors
+
+                        if len(module.calls or []) > 0:
+                            for idx, call in enumerate(module.calls):
+                                runtime_call = RuntimeCall(
+                                    spec_version=spec_version,
+                                    module_id=module_id,
+                                    call_id=call.get_identifier(),
+                                    index=idx,
+                                    name=call.name,
+                                    lookup=call.lookup,
+                                    documentation='\n'.join(call.docs),
+                                    count_params=len(call.args)
+                                )
+                                runtime_call.save(self.db_session)
+
+                                for arg in call.args:
+                                    runtime_call_param = RuntimeCallParam(
+                                        runtime_call_id=runtime_call.id,
+                                        name=arg.name,
+                                        type=arg.type
                                     )
-                                    runtime_call.save(self.db_session)
+                                    runtime_call_param.save(self.db_session)
 
-                                    for arg in call.args:
-                                        runtime_call_param = RuntimeCallParam(
-                                            runtime_call_id=runtime_call.id,
-                                            name=arg.name,
-                                            type=arg.type
-                                        )
-                                        runtime_call_param.save(self.db_session)
-
-                                        # Check if type already registered in database
-                                        self.process_metadata_type(arg.type, spec_version)
-
-                        for event_module in metadata_decoder.metadata.events_modules:
-                            for event_index, event in enumerate(event_module.events):
+                        if len(module.events or []) > 0:
+                            for event_index, event in enumerate(module.events):
                                 runtime_event = RuntimeEvent(
                                     spec_version=spec_version,
-                                    module_id=event_module.name,
+                                    module_id=module_id,
                                     event_id=event.name,
                                     index=event_index,
                                     name=event.name,
@@ -282,8 +237,6 @@ class PolkascanHarvesterService(BaseService):
                                 )
                                 runtime_event.save(self.db_session)
 
-                                runtime_module.count_events += 1
-
                                 for arg_index, arg in enumerate(event.args):
                                     runtime_event_attr = RuntimeEventAttribute(
                                         runtime_event_id=runtime_event.id,
@@ -292,199 +245,112 @@ class PolkascanHarvesterService(BaseService):
                                     )
                                     runtime_event_attr.save(self.db_session)
 
-                        runtime_module.save(self.db_session)
+                        if len(storage_functions) > 0:
+                            for idx, storage in enumerate(storage_functions):
 
-                    else:
-                        for module in metadata_decoder.metadata.modules:
+                                # Determine type
+                                type_hasher = None
+                                type_key1 = None
+                                type_key2 = None
+                                type_value = None
+                                type_is_linked = None
+                                type_key2hasher = None
 
-                            # Check if module exists
-                            if RuntimeModule.query(self.db_session).filter_by(
-                                spec_version=spec_version,
-                                module_id=module.get_identifier()
-                            ).count() == 0:
-                                module_id = module.get_identifier()
-                            else:
-                                module_id = '{}_1'.format(module.get_identifier())
+                                if storage.type.get('PlainType'):
+                                    type_value = storage.type.get('PlainType')
 
-                            # Storage backwards compt check
-                            if module.storage and isinstance(module.storage, list):
-                                storage_functions = module.storage
-                            elif module.storage and isinstance(getattr(module.storage, 'value'), dict):
-                                storage_functions = module.storage.items
-                            else:
-                                storage_functions = []
+                                elif storage.type.get('MapType'):
+                                    type_hasher = storage.type['MapType'].get('hasher')
+                                    type_key1 = storage.type['MapType'].get('key')
+                                    type_value = storage.type['MapType'].get('value')
+                                    type_is_linked = storage.type['MapType'].get('isLinked', False)
 
-                            runtime_module = RuntimeModule(
-                                spec_version=spec_version,
-                                module_id=module_id,
-                                prefix=module.prefix,
-                                name=module.name,
-                                count_call_functions=len(module.calls or []),
-                                count_storage_functions=len(storage_functions),
-                                count_events=len(module.events or []),
-                                count_constants=len(module.constants or []),
-                                count_errors=len(module.errors or []),
-                            )
-                            runtime_module.save(self.db_session)
+                                elif storage.type.get('DoubleMapType'):
+                                    type_hasher = storage.type['DoubleMapType'].get('hasher')
+                                    type_key1 = storage.type['DoubleMapType'].get('key1')
+                                    type_key2 = storage.type['DoubleMapType'].get('key2')
+                                    type_value = storage.type['DoubleMapType'].get('value')
+                                    type_key2hasher = storage.type['DoubleMapType'].get('key2Hasher')
 
-                            # Update totals in runtime
-                            runtime.count_call_functions += runtime_module.count_call_functions
-                            runtime.count_events += runtime_module.count_events
-                            runtime.count_storage_functions += runtime_module.count_storage_functions
-                            runtime.count_constants += runtime_module.count_constants
-                            runtime.count_errors += runtime_module.count_errors
+                                runtime_storage = RuntimeStorage(
+                                    spec_version=spec_version,
+                                    module_id=module_id,
+                                    index=idx,
+                                    name=storage.name,
+                                    lookup=None,
+                                    default=storage.fallback,
+                                    modifier=storage.modifier,
+                                    type_hasher=type_hasher,
+                                    type_key1=type_key1,
+                                    type_key2=type_key2,
+                                    type_value=type_value,
+                                    type_is_linked=type_is_linked,
+                                    type_key2hasher=type_key2hasher,
+                                    documentation='\n'.join(storage.docs)
+                                )
+                                runtime_storage.save(self.db_session)
 
-                            if len(module.calls or []) > 0:
-                                for idx, call in enumerate(module.calls):
-                                    runtime_call = RuntimeCall(
-                                        spec_version=spec_version,
-                                        module_id=module_id,
-                                        call_id=call.get_identifier(),
-                                        index=idx,
-                                        name=call.name,
-                                        lookup=call.lookup,
-                                        documentation='\n'.join(call.docs),
-                                        count_params=len(call.args)
+                        if len(module.constants or []) > 0:
+                            for idx, constant in enumerate(module.constants):
+
+                                # Decode value
+                                try:
+                                    value_obj = ScaleDecoder.get_decoder_class(
+                                        constant.type,
+                                        ScaleBytes(constant.constant_value)
                                     )
-                                    runtime_call.save(self.db_session)
+                                    value_obj.decode()
+                                    value = value_obj.serialize()
+                                except ValueError:
+                                    value = constant.constant_value
+                                except RemainingScaleBytesNotEmptyException:
+                                    value = constant.constant_value
+                                except NotImplementedError:
+                                    value = constant.constant_value
 
-                                    for arg in call.args:
-                                        runtime_call_param = RuntimeCallParam(
-                                            runtime_call_id=runtime_call.id,
-                                            name=arg.name,
-                                            type=arg.type
-                                        )
-                                        runtime_call_param.save(self.db_session)
+                                if type(value) is list or type(value) is dict:
+                                    value = json.dumps(value)
 
-                                        # Check if type already registered in database
-                                        self.process_metadata_type(arg.type, spec_version)
+                                runtime_constant = RuntimeConstant(
+                                    spec_version=spec_version,
+                                    module_id=module_id,
+                                    index=idx,
+                                    name=constant.name,
+                                    type=constant.type,
+                                    value=value,
+                                    documentation='\n'.join(constant.docs)
+                                )
+                                runtime_constant.save(self.db_session)
 
-                            if len(module.events or []) > 0:
-                                for event_index, event in enumerate(module.events):
-                                    runtime_event = RuntimeEvent(
-                                        spec_version=spec_version,
-                                        module_id=module_id,
-                                        event_id=event.name,
-                                        index=event_index,
-                                        name=event.name,
-                                        lookup=event.lookup,
-                                        documentation='\n'.join(event.docs),
-                                        count_attributes=len(event.args)
-                                    )
-                                    runtime_event.save(self.db_session)
-
-                                    for arg_index, arg in enumerate(event.args):
-                                        runtime_event_attr = RuntimeEventAttribute(
-                                            runtime_event_id=runtime_event.id,
-                                            index=arg_index,
-                                            type=arg
-                                        )
-                                        runtime_event_attr.save(self.db_session)
-
-                            if len(storage_functions) > 0:
-                                for idx, storage in enumerate(storage_functions):
-
-                                    # Determine type
-                                    type_hasher = None
-                                    type_key1 = None
-                                    type_key2 = None
-                                    type_value = None
-                                    type_is_linked = None
-                                    type_key2hasher = None
-
-                                    if storage.type.get('PlainType'):
-                                        type_value = storage.type.get('PlainType')
-
-                                    elif storage.type.get('MapType'):
-                                        type_hasher = storage.type['MapType'].get('hasher')
-                                        type_key1 = storage.type['MapType'].get('key')
-                                        type_value = storage.type['MapType'].get('value')
-                                        type_is_linked = storage.type['MapType'].get('isLinked', False)
-
-                                    elif storage.type.get('DoubleMapType'):
-                                        type_hasher = storage.type['DoubleMapType'].get('hasher')
-                                        type_key1 = storage.type['DoubleMapType'].get('key1')
-                                        type_key2 = storage.type['DoubleMapType'].get('key2')
-                                        type_value = storage.type['DoubleMapType'].get('value')
-                                        type_key2hasher = storage.type['DoubleMapType'].get('key2Hasher')
-
-                                    runtime_storage = RuntimeStorage(
-                                        spec_version=spec_version,
-                                        module_id=module_id,
-                                        index=idx,
-                                        name=storage.name,
-                                        lookup=None,
-                                        default=storage.fallback,
-                                        modifier=storage.modifier,
-                                        type_hasher=type_hasher,
-                                        type_key1=type_key1,
-                                        type_key2=type_key2,
-                                        type_value=type_value,
-                                        type_is_linked=type_is_linked,
-                                        type_key2hasher=type_key2hasher,
-                                        documentation='\n'.join(storage.docs)
-                                    )
-                                    runtime_storage.save(self.db_session)
-
-                                    # Check if types already registered in database
-
-                                    self.process_metadata_type(type_value, spec_version)
-
-                                    if type_key1:
-                                        self.process_metadata_type(type_key1, spec_version)
-
-                                    if type_key2:
-                                        self.process_metadata_type(type_key2, spec_version)
-
-                            if len(module.constants or []) > 0:
-                                for idx, constant in enumerate(module.constants):
-
-                                    # Decode value
-                                    try:
-                                        value_obj = ScaleDecoder.get_decoder_class(
-                                            constant.type,
-                                            ScaleBytes(constant.constant_value)
-                                        )
-                                        value_obj.decode()
-                                        value = value_obj.serialize()
-                                    except ValueError:
-                                        value = constant.constant_value
-                                    except RemainingScaleBytesNotEmptyException:
-                                        value = constant.constant_value
-                                    except NotImplementedError:
-                                        value = constant.constant_value
-
-                                    runtime_constant = RuntimeConstant(
-                                        spec_version=spec_version,
-                                        module_id=module_id,
-                                        index=idx,
-                                        name=constant.name,
-                                        type=constant.type,
-                                        value=value,
-                                        documentation='\n'.join(constant.docs)
-                                    )
-                                    runtime_constant.save(self.db_session)
-
-                                    # Check if types already registered in database
-                                    self.process_metadata_type(constant.type, spec_version)
-
-                            if len(module.errors or []) > 0:
-                                for idx, error in enumerate(module.errors):
-                                    runtime_error = RuntimeErrorMessage(
-                                        spec_version=spec_version,
-                                        module_id=module_id,
-                                        index=idx,
-                                        name=error.name,
-                                        documentation='\n'.join(error.docs)
-                                    )
-                                    runtime_error.save(self.db_session)
+                        if len(module.errors or []) > 0:
+                            for idx, error in enumerate(module.errors):
+                                runtime_error = RuntimeErrorMessage(
+                                    spec_version=spec_version,
+                                    module_id=module_id,
+                                    index=idx,
+                                    name=error.name,
+                                    documentation='\n'.join(error.docs)
+                                )
+                                runtime_error.save(self.db_session)
 
                         runtime.save(self.db_session)
+
+                    # Process types
+                    for runtime_type_data in list(self.substrate.get_type_registry(block_hash=block_hash).values()):
+
+                        runtime_type = RuntimeType(
+                            spec_version=runtime_type_data["spec_version"],
+                            type_string=runtime_type_data["type_string"],
+                            decoder_class=runtime_type_data["decoder_class"],
+                            is_primitive_core=runtime_type_data["is_primitive_core"],
+                            is_primitive_runtime=runtime_type_data["is_primitive_runtime"]
+                        )
+                        runtime_type.save(self.db_session)
 
                     self.db_session.commit()
 
                     # Put in local store
-                    self.metadata_store[spec_version] = metadata_decoder
+                    self.metadata_store[spec_version] = self.substrate.metadata_decoder
                 except SQLAlchemyError as e:
                     self.db_session.rollback()
 
@@ -494,13 +360,10 @@ class PolkascanHarvesterService(BaseService):
         if Block.query(self.db_session).filter_by(hash=block_hash).count() > 0:
             raise BlockAlreadyAdded(block_hash)
 
-        # Extract data from json_block
-        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
-
         if SUBSTRATE_MOCK_EXTRINSICS:
-            substrate.mock_extrinsics = SUBSTRATE_MOCK_EXTRINSICS
+            self.substrate.mock_extrinsics = SUBSTRATE_MOCK_EXTRINSICS
 
-        json_block = substrate.get_chain_block(block_hash)
+        json_block = self.substrate.get_chain_block(block_hash)
 
         parent_hash = json_block['block']['header'].pop('parentHash')
         block_id = json_block['block']['header'].pop('number')
@@ -513,26 +376,21 @@ class PolkascanHarvesterService(BaseService):
             block_id = int(block_id, 16)
 
         # ==== Get block runtime from Substrate ==================
-        json_runtime_version = substrate.get_block_runtime_version(block_hash)
 
-        # Get spec version
-        spec_version = json_runtime_version.get('specVersion', 0)
+        self.substrate.init_runtime(block_hash=block_hash)
 
-        # Update runtime configuration
-        RuntimeConfiguration().set_active_spec_version_id(spec_version)
-
-        self.process_metadata(json_runtime_version, block_hash)
+        self.process_metadata(self.substrate.runtime_version, block_hash)
 
         # ==== Get parent block runtime ===================
 
         if block_id > 0:
-            json_parent_runtime_version = substrate.get_block_runtime_version(parent_hash)
+            json_parent_runtime_version = self.substrate.get_block_runtime_version(parent_hash)
 
             parent_spec_version = json_parent_runtime_version.get('specVersion', 0)
 
-            self.process_metadata(json_parent_runtime_version, parent_hash)
+            self.process_metadata(parent_spec_version, parent_hash)
         else:
-            parent_spec_version = spec_version
+            parent_spec_version = self.substrate.runtime_version
 
         # ==== Set initial block properties =====================
 
@@ -564,7 +422,7 @@ class PolkascanHarvesterService(BaseService):
             range10000=math.floor(block_id / 10000),
             range100000=math.floor(block_id / 100000),
             range1000000=math.floor(block_id / 1000000),
-            spec_version_id=spec_version,
+            spec_version_id=self.substrate.runtime_version,
             logs=digest_logs
         )
 
@@ -577,7 +435,7 @@ class PolkascanHarvesterService(BaseService):
         events = []
 
         try:
-            events_decoder = substrate.get_block_events(block_hash, self.metadata_store[parent_spec_version])
+            events_decoder = self.substrate.get_block_events(block_hash, self.metadata_store[parent_spec_version])
 
             event_idx = 0
 
@@ -646,18 +504,10 @@ class PolkascanHarvesterService(BaseService):
 
         for extrinsic in extrinsics_data:
 
-            # Save to data table
-            if block_hash == '0x911a0bf66d5494b6b24f612b3cc14841134c6b73ab9ce02f7e012973070e5661':
-                # TODO TEMP fix for exception in Alexander network, remove when network is obsolete
-                extrinsics_decoder = ExtrinsicsBlock61181Decoder(
-                    data=ScaleBytes(extrinsic),
-                    metadata=self.metadata_store[parent_spec_version]
-                )
-            else:
-                extrinsics_decoder = ExtrinsicsDecoder(
-                    data=ScaleBytes(extrinsic),
-                    metadata=self.metadata_store[parent_spec_version]
-                )
+            extrinsics_decoder = ExtrinsicsDecoder(
+                data=ScaleBytes(extrinsic),
+                metadata=self.metadata_store[parent_spec_version]
+            )
 
             extrinsic_data = extrinsics_decoder.decode()
 
@@ -726,6 +576,7 @@ class PolkascanHarvesterService(BaseService):
                 event_processor = processor_class(block, event, extrinsic,
                                                   metadata=self.metadata_store.get(block.spec_version_id))
                 event_processor.accumulation_hook(self.db_session)
+                event_processor.process_search_index(self.db_session)
 
         # Process block processors
         for processor_class in ProcessorRegistry().get_block_processors():
@@ -779,46 +630,45 @@ class PolkascanHarvesterService(BaseService):
             id=block.id
         )
 
-        if block:
-            # Process block processors
-            for processor_class in ProcessorRegistry().get_block_processors():
-                block_processor = processor_class(block, sequenced_block)
-                block_processor.sequencing_hook(
+        # Process block processors
+        for processor_class in ProcessorRegistry().get_block_processors():
+            block_processor = processor_class(block, sequenced_block)
+            block_processor.sequencing_hook(
+                self.db_session,
+                parent_block_data,
+                parent_sequenced_block_data
+            )
+
+        extrinsics = Extrinsic.query(self.db_session).filter_by(block_id=block.id)
+
+        for extrinsic in extrinsics:
+            # Process extrinsic processors
+            for processor_class in ProcessorRegistry().get_extrinsic_processors(extrinsic.module_id, extrinsic.call_id):
+                extrinsic_processor = processor_class(block, extrinsic)
+                extrinsic_processor.sequencing_hook(
                     self.db_session,
                     parent_block_data,
                     parent_sequenced_block_data
                 )
 
-            extrinsics = Extrinsic.query(self.db_session).filter_by(block_id=block.id)
+        events = Event.query(self.db_session).filter_by(block_id=block.id).order_by('event_idx')
 
-            for extrinsic in extrinsics:
-                # Process extrinsic processors
-                for processor_class in ProcessorRegistry().get_extrinsic_processors(extrinsic.module_id, extrinsic.call_id):
-                    extrinsic_processor = processor_class(block, extrinsic)
-                    extrinsic_processor.sequencing_hook(
-                        self.db_session,
-                        parent_block_data,
-                        parent_sequenced_block_data
-                    )
+        # Process event processors
+        for event in events:
+            extrinsic = None
+            if event.extrinsic_idx is not None:
+                try:
+                    extrinsic = extrinsics[event.extrinsic_idx]
+                except IndexError:
+                    extrinsic = None
 
-            events = Event.query(self.db_session).filter_by(block_id=block.id).order_by('event_idx')
-
-            # Process event processors
-            for event in events:
-                extrinsic = None
-                if event.extrinsic_idx is not None:
-                    try:
-                        extrinsic = extrinsics[event.extrinsic_idx]
-                    except IndexError:
-                        extrinsic = None
-
-                for processor_class in ProcessorRegistry().get_event_processors(event.module_id, event.event_id):
-                    event_processor = processor_class(block, event, extrinsic)
-                    event_processor.sequencing_hook(
-                        self.db_session,
-                        parent_block_data,
-                        parent_sequenced_block_data
-                    )
+            for processor_class in ProcessorRegistry().get_event_processors(event.module_id, event.event_id):
+                event_processor = processor_class(block, event, extrinsic)
+                event_processor.sequencing_hook(
+                    self.db_session,
+                    parent_block_data,
+                    parent_sequenced_block_data
+                )
 
         sequenced_block.save(self.db_session)
 
@@ -962,6 +812,10 @@ class PolkascanHarvesterService(BaseService):
 
                 block = Block.query(self.db_session).get(block_nr)
 
+                if not block:
+                    self.db_session.commit()
+                    return {'result': 'Finished at #{}'.format(sequencer_parent_block.id)}
+
                 sequencer_parent_block_data = sequencer_parent_block.asdict()
                 parent_block_data = parent_block.asdict()
 
@@ -995,4 +849,23 @@ class PolkascanHarvesterService(BaseService):
             for log in Log.query(self.db_session).filter_by(block_id=block.id):
                 model = ReorgLog(block_hash=block.hash, **log.asdict())
                 model.save(self.db_session)
+
+    def rebuild_search_index(self, search_index_type_id):
+
+        if search_index_type_id == SEARCH_INDEX_SLASHED_ACCOUNT:
+
+            for event in Event.query(self.db_session).filter_by(module_id='staking', event_id='Slash'):
+                processor = SlashEventProcessor(block=event.block, event=event)
+                processor.process_search_index(self.db_session)
+
+            self.db_session.commit()
+        elif search_index_type_id == SEARCH_INDEX_BALANCETRANSFER:
+
+            for event in Event.query(self.db_session).filter_by(module_id='balances', event_id='Transfer'):
+                processor = BalancesTransferProcessor(block=event.block, event=event)
+                processor.process_search_index(self.db_session)
+
+            self.db_session.commit()
+        else:
+            raise NotImplementedError('Not supported search index {}'.format(search_index_type_id))
 

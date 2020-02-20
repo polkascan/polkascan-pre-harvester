@@ -1,6 +1,6 @@
 #  Polkascan PRE Harvester
 #
-#  Copyright 2018-2019 openAware BV (NL).
+#  Copyright 2018-2020 openAware BV (NL).
 #  This file is part of Polkascan.
 #
 #  Polkascan is free software: you can redistribute it and/or modify
@@ -17,6 +17,7 @@
 #  along with Polkascan. If not, see <http://www.gnu.org/licenses/>.
 #
 #  base.py
+from app.models.data import SearchIndex
 
 
 class BaseService(object):
@@ -136,6 +137,19 @@ class EventProcessor(Processor):
         self.event = event
         self.extrinsic = extrinsic
         self.metadata = metadata
+
+    def add_search_index(self, index_type_id, account_id=None, sorting_value=None):
+        return SearchIndex(
+            index_type_id=index_type_id,
+            block_id=self.block.id,
+            event_idx=self.event.event_idx,
+            extrinsic_idx=self.event.extrinsic_idx,
+            account_id=account_id,
+            sorting_value=sorting_value
+        )
+
+    def process_search_index(self, db_session):
+        pass
 
 
 class ExtrinsicProcessor(Processor):

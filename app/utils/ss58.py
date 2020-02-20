@@ -1,6 +1,6 @@
 #  Polkascan PRE Harvester
 #
-#  Copyright 2018-2019 openAware BV (NL).
+#  Copyright 2018-2020 openAware BV (NL).
 #  This file is part of Polkascan.
 #
 #  Polkascan is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 #
 #  ss58.py
 
-""" SS58 is a simple address format designed for Substrate based chains. 
+""" SS58 is a simple address format designed for Substrate based chains.
     Encoding/decoding according to specification on https://wiki.parity.io/External-Address-Format-(SS58)
 
 """
@@ -72,7 +72,7 @@ def ss58_encode(address, address_type=42):
         address_bytes = address
     else:
         address_bytes = bytes.fromhex(address)
-    
+
     if len(address_bytes) == 32:
         # Checksum size is 2 bytes for public key
         checksum_length = 2

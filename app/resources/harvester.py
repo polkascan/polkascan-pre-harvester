@@ -1,6 +1,6 @@
 #  Polkascan PRE Harvester
 #
-#  Copyright 2018-2019 openAware BV (NL).
+#  Copyright 2018-2020 openAware BV (NL).
 #  This file is part of Polkascan.
 #
 #  Polkascan is free software: you can redistribute it and/or modify
@@ -32,7 +32,7 @@ from app.resources.base import BaseResource
 from app.schemas import load_schema
 from app.processors.converters import PolkascanHarvesterService, BlockAlreadyAdded, BlockIntegrityError
 from substrateinterface import SubstrateInterface
-from app.tasks import accumulate_block_recursive, start_harvester
+from app.tasks import accumulate_block_recursive, start_harvester, rebuilding_search_index
 from app.settings import SUBSTRATE_RPC_URL, TYPE_REGISTRY
 
 
@@ -241,6 +241,24 @@ class StartSequenceBlockResource(BaseResource):
         }
 
 
+class ProcessGenesisBlockResource(BaseResource):
+
+    def on_post(self, req, resp):
+
+        harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+        block = Block.query(self.session).get(1)
+        if block:
+            result = harvester.process_genesis(block=block)
+        else:
+            result = 'Block #1 required to process genesis'
+
+        self.session.commit()
+
+        resp.media = {
+            'result': result
+        }
+
+
 class StartIntegrityResource(BaseResource):
 
     def on_post(self, req, resp):
@@ -252,4 +270,19 @@ class StartIntegrityResource(BaseResource):
 
         resp.media = {
             'result': result
+        }
+
+
+class RebuildSearchIndexResource(BaseResource):
+
+    def on_post(self, req, resp):
+        task = rebuilding_search_index.delay(req.media.get('search_index_id'))
+
+        resp.status = falcon.HTTP_201
+
+        resp.media = {
+            'status': 'Search index rebuild task created',
+            'data': {
+                'task_id': task.id
+            }
         }

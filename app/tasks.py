@@ -1,6 +1,6 @@
 #  Polkascan PRE Harvester
 #
-#  Copyright 2018-2019 openAware BV (NL).
+#  Copyright 2018-2020 openAware BV (NL).
 #  This file is part of Polkascan.
 #
 #  Polkascan is free software: you can redistribute it and/or modify
@@ -35,7 +35,8 @@ from app.processors.converters import PolkascanHarvesterService, HarvesterCouldN
     BlockIntegrityError
 from substrateinterface import SubstrateInterface
 
-from app.settings import DB_CONNECTION, DEBUG, SUBSTRATE_RPC_URL, TYPE_REGISTRY, FINALIZATION_ONLY
+from app.settings import DB_CONNECTION, DEBUG, SUBSTRATE_RPC_URL, TYPE_REGISTRY, \
+    SEARCH_INDEX_SLASHED_ACCOUNT, SEARCH_INDEX_BALANCETRANSFER, SEARCH_INDEX_HEARTBEATRECEIVED, FINALIZATION_ONLY
 
 CELERY_BROKER = os.environ.get('CELERY_BROKER')
 CELERY_BACKEND = os.environ.get('CELERY_BACKEND')
@@ -167,6 +168,19 @@ def start_sequencer(self):
         return result
     else:
         return {'result': 'Sequencer already running'}
+
+
+@app.task(base=BaseTask, bind=True)
+def rebuilding_search_index(self, search_index_id, truncate=False):
+    if truncate:
+        # Clear search index table
+        self.session.execute('delete from analytics_search_index where index_type_id={}'.format(search_index_id))
+        self.session.commit()
+
+    harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+    harvester.rebuild_search_index(search_index_id)
+
+    return {'result': 'index rebuilt'}
 
 
 @app.task(base=BaseTask, bind=True)
