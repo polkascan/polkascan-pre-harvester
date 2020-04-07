@@ -760,8 +760,12 @@ class PolkascanHarvesterService(BaseService):
         return {'integrity_head': integrity_head.value}
 
     def start_sequencer(self):
-        integrity_status = self.integrity_checks()
-        self.db_session.commit()
+        # Continue even if the integrity check raises exceptions
+        try:
+            integrity_status = self.integrity_checks()
+            self.db_session.commit()
+        except BlockIntegrityError as e:
+            print(e)
 
         block_nr = None
 
