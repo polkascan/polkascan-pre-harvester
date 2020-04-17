@@ -24,7 +24,7 @@ echo "Running gunicorn..."
 if [ "$ENVIRONMENT" = "dev" ]; then
     # Set path
     export PYTHONPATH=$PYTHONPATH:./py-substrate-interface/:./py-scale-codec/
-    gunicorn -b 0.0.0.0:8001 --workers=2 app.main:app --reload
+    gunicorn -b 0.0.0.0:8001 --workers=2 app.main:app --reload --timeout 600
 fi
 
 if [ "$ENVIRONMENT" = "prod" ]; then

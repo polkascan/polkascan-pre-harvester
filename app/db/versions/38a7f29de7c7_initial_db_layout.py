@@ -1,8 +1,8 @@
-"""Initial DB layout
+"""Initial db layout
 
-Revision ID: 02a3f2cdcb86
+Revision ID: 38a7f29de7c7
 Revises: 
-Create Date: 2020-02-20 11:06:10.899331
+Create Date: 2020-04-16 12:51:44.832584
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = '02a3f2cdcb86'
+revision = '38a7f29de7c7'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -24,11 +24,28 @@ def upgrade():
     sa.Column('index_address', sa.String(length=24), nullable=True),
     sa.Column('is_reaped', sa.Boolean(), nullable=True),
     sa.Column('is_validator', sa.Boolean(), nullable=True),
+    sa.Column('was_validator', sa.Boolean(), nullable=True),
     sa.Column('is_nominator', sa.Boolean(), nullable=True),
+    sa.Column('was_nominator', sa.Boolean(), nullable=True),
+    sa.Column('is_council_member', sa.Boolean(), nullable=True),
+    sa.Column('was_council_member', sa.Boolean(), nullable=True),
+    sa.Column('is_tech_comm_member', sa.Boolean(), nullable=True),
+    sa.Column('was_tech_comm_member', sa.Boolean(), nullable=True),
+    sa.Column('is_registrar', sa.Boolean(), nullable=True),
+    sa.Column('was_registrar', sa.Boolean(), nullable=True),
+    sa.Column('is_sudo', sa.Boolean(), nullable=True),
+    sa.Column('was_sudo', sa.Boolean(), nullable=True),
+    sa.Column('is_treasury', sa.Boolean(), nullable=True),
     sa.Column('is_contract', sa.Boolean(), nullable=True),
     sa.Column('count_reaped', sa.Integer(), nullable=True),
-    sa.Column('balance', sa.Numeric(precision=65, scale=0), nullable=False),
     sa.Column('hash_blake2b', sa.String(length=64), nullable=True),
+    sa.Column('balance_total', sa.Numeric(precision=65, scale=0), nullable=True),
+    sa.Column('balance_free', sa.Numeric(precision=65, scale=0), nullable=True),
+    sa.Column('balance_reserved', sa.Numeric(precision=65, scale=0), nullable=True),
+    sa.Column('nonce', sa.Integer(), nullable=True),
+    sa.Column('account_info', sa.JSON(), nullable=True),
+    sa.Column('has_identity', sa.Boolean(), nullable=True),
+    sa.Column('has_subidentity', sa.Boolean(), nullable=True),
     sa.Column('identity_display', sa.String(length=32), nullable=True),
     sa.Column('identity_legal', sa.String(length=32), nullable=True),
     sa.Column('identity_web', sa.String(length=32), nullable=True),
@@ -37,14 +54,36 @@ def upgrade():
     sa.Column('identity_twitter', sa.String(length=32), nullable=True),
     sa.Column('identity_judgement_good', sa.Integer(), nullable=True),
     sa.Column('identity_judgement_bad', sa.Integer(), nullable=True),
+    sa.Column('parent_identity', sa.String(length=64), nullable=True),
+    sa.Column('subidentity_display', sa.String(length=32), nullable=True),
     sa.Column('created_at_block', sa.Integer(), nullable=False),
     sa.Column('updated_at_block', sa.Integer(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_data_account_address'), 'data_account', ['address'], unique=False)
+    op.create_index(op.f('ix_data_account_balance_free'), 'data_account', ['balance_free'], unique=False)
+    op.create_index(op.f('ix_data_account_balance_reserved'), 'data_account', ['balance_reserved'], unique=False)
+    op.create_index(op.f('ix_data_account_balance_total'), 'data_account', ['balance_total'], unique=False)
+    op.create_index(op.f('ix_data_account_has_identity'), 'data_account', ['has_identity'], unique=False)
+    op.create_index(op.f('ix_data_account_has_subidentity'), 'data_account', ['has_subidentity'], unique=False)
     op.create_index(op.f('ix_data_account_hash_blake2b'), 'data_account', ['hash_blake2b'], unique=False)
     op.create_index(op.f('ix_data_account_identity_display'), 'data_account', ['identity_display'], unique=False)
     op.create_index(op.f('ix_data_account_index_address'), 'data_account', ['index_address'], unique=False)
+    op.create_index(op.f('ix_data_account_is_contract'), 'data_account', ['is_contract'], unique=False)
+    op.create_index(op.f('ix_data_account_is_council_member'), 'data_account', ['is_council_member'], unique=False)
+    op.create_index(op.f('ix_data_account_is_nominator'), 'data_account', ['is_nominator'], unique=False)
+    op.create_index(op.f('ix_data_account_is_registrar'), 'data_account', ['is_registrar'], unique=False)
+    op.create_index(op.f('ix_data_account_is_sudo'), 'data_account', ['is_sudo'], unique=False)
+    op.create_index(op.f('ix_data_account_is_tech_comm_member'), 'data_account', ['is_tech_comm_member'], unique=False)
+    op.create_index(op.f('ix_data_account_is_treasury'), 'data_account', ['is_treasury'], unique=False)
+    op.create_index(op.f('ix_data_account_is_validator'), 'data_account', ['is_validator'], unique=False)
+    op.create_index(op.f('ix_data_account_parent_identity'), 'data_account', ['parent_identity'], unique=False)
+    op.create_index(op.f('ix_data_account_was_council_member'), 'data_account', ['was_council_member'], unique=False)
+    op.create_index(op.f('ix_data_account_was_nominator'), 'data_account', ['was_nominator'], unique=False)
+    op.create_index(op.f('ix_data_account_was_registrar'), 'data_account', ['was_registrar'], unique=False)
+    op.create_index(op.f('ix_data_account_was_sudo'), 'data_account', ['was_sudo'], unique=False)
+    op.create_index(op.f('ix_data_account_was_tech_comm_member'), 'data_account', ['was_tech_comm_member'], unique=False)
+    op.create_index(op.f('ix_data_account_was_validator'), 'data_account', ['was_validator'], unique=False)
     op.create_table('data_account_audit',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('account_id', sa.String(length=64), nullable=True),
@@ -82,6 +121,21 @@ def upgrade():
     op.create_index(op.f('ix_data_account_index_audit_account_id'), 'data_account_index_audit', ['account_id'], unique=False)
     op.create_index(op.f('ix_data_account_index_audit_account_index_id'), 'data_account_index_audit', ['account_index_id'], unique=False)
     op.create_index(op.f('ix_data_account_index_audit_block_id'), 'data_account_index_audit', ['block_id'], unique=False)
+    op.create_table('data_account_info_snapshot',
+    sa.Column('block_id', sa.Integer(), nullable=False),
+    sa.Column('account_id', sa.String(length=64), nullable=False),
+    sa.Column('balance_total', sa.Numeric(precision=65, scale=0), nullable=True),
+    sa.Column('balance_free', sa.Numeric(precision=65, scale=0), nullable=True),
+    sa.Column('balance_reserved', sa.Numeric(precision=65, scale=0), nullable=True),
+    sa.Column('nonce', sa.Integer(), nullable=True),
+    sa.Column('account_info', sa.JSON(), nullable=True),
+    sa.PrimaryKeyConstraint('block_id', 'account_id')
+    )
+    op.create_index(op.f('ix_data_account_info_snapshot_account_id'), 'data_account_info_snapshot', ['account_id'], unique=False)
+    op.create_index(op.f('ix_data_account_info_snapshot_balance_free'), 'data_account_info_snapshot', ['balance_free'], unique=False)
+    op.create_index(op.f('ix_data_account_info_snapshot_balance_reserved'), 'data_account_info_snapshot', ['balance_reserved'], unique=False)
+    op.create_index(op.f('ix_data_account_info_snapshot_balance_total'), 'data_account_info_snapshot', ['balance_total'], unique=False)
+    op.create_index(op.f('ix_data_account_info_snapshot_block_id'), 'data_account_info_snapshot', ['block_id'], unique=False)
     op.create_table('data_account_search_index',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('block_id', sa.Integer(), nullable=False),
@@ -178,6 +232,7 @@ def upgrade():
     sa.Column('total_contracts_new', sa.Numeric(precision=65, scale=0), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_data_block_total_author'), 'data_block_total', ['author'], unique=False)
     op.create_table('data_contract',
     sa.Column('code_hash', sa.String(length=64), nullable=False),
     sa.Column('bytecode', mysql.LONGTEXT(), nullable=True),
@@ -464,6 +519,24 @@ def upgrade():
     op.create_index(op.f('ix_data_session_validator_validator_controller'), 'data_session_validator', ['validator_controller'], unique=False)
     op.create_index(op.f('ix_data_session_validator_validator_session'), 'data_session_validator', ['validator_session'], unique=False)
     op.create_index(op.f('ix_data_session_validator_validator_stash'), 'data_session_validator', ['validator_stash'], unique=False)
+    op.create_table('data_storage',
+    sa.Column('block_id', sa.Integer(), autoincrement=False, nullable=False),
+    sa.Column('storage_key', sa.String(length=255), nullable=False),
+    sa.Column('storage_key_prefix', sa.String(length=64), nullable=True),
+    sa.Column('spec_version_id', sa.Integer(), nullable=True),
+    sa.Column('module_prefix', sa.String(length=255), nullable=True),
+    sa.Column('function_name', sa.String(length=255), nullable=True),
+    sa.Column('return_type', sa.String(length=255), nullable=True),
+    sa.Column('data', sa.JSON(), nullable=True),
+    sa.Column('data_raw', mysql.LONGTEXT(), nullable=True),
+    sa.Column('error', sa.SmallInteger(), nullable=False),
+    sa.Column('comments', mysql.LONGTEXT(), nullable=True),
+    sa.PrimaryKeyConstraint('block_id', 'storage_key')
+    )
+    op.create_index(op.f('ix_data_storage_block_id'), 'data_storage', ['block_id'], unique=False)
+    op.create_index(op.f('ix_data_storage_spec_version_id'), 'data_storage', ['spec_version_id'], unique=False)
+    op.create_index(op.f('ix_data_storage_storage_key'), 'data_storage', ['storage_key'], unique=False)
+    op.create_index(op.f('ix_data_storage_storage_key_prefix'), 'data_storage', ['storage_key_prefix'], unique=False)
     op.create_table('harvester_setting',
     sa.Column('key', sa.String(length=64), nullable=False),
     sa.Column('value', sa.String(length=255), nullable=True),
@@ -587,7 +660,7 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('spec_version', sa.Integer(), nullable=True),
     sa.Column('module_id', sa.String(length=64), nullable=True),
-    sa.Column('storage_key', sa.String(length=32), nullable=True),
+    sa.Column('storage_key', sa.String(length=255), nullable=True),
     sa.Column('index', sa.Integer(), nullable=True),
     sa.Column('name', sa.String(length=255), nullable=True),
     sa.Column('lookup', sa.String(length=4), nullable=True),
@@ -636,6 +709,11 @@ def downgrade():
     op.drop_table('runtime')
     op.drop_table('harvester_status')
     op.drop_table('harvester_setting')
+    op.drop_index(op.f('ix_data_storage_storage_key_prefix'), table_name='data_storage')
+    op.drop_index(op.f('ix_data_storage_storage_key'), table_name='data_storage')
+    op.drop_index(op.f('ix_data_storage_spec_version_id'), table_name='data_storage')
+    op.drop_index(op.f('ix_data_storage_block_id'), table_name='data_storage')
+    op.drop_table('data_storage')
     op.drop_index(op.f('ix_data_session_validator_validator_stash'), table_name='data_session_validator')
     op.drop_index(op.f('ix_data_session_validator_validator_session'), table_name='data_session_validator')
     op.drop_index(op.f('ix_data_session_validator_validator_controller'), table_name='data_session_validator')
@@ -706,6 +784,7 @@ def downgrade():
     op.drop_index(op.f('ix_data_event_block_id'), table_name='data_event')
     op.drop_table('data_event')
     op.drop_table('data_contract')
+    op.drop_index(op.f('ix_data_block_total_author'), table_name='data_block_total')
     op.drop_table('data_block_total')
     op.drop_index(op.f('ix_data_block_parent_hash'), table_name='data_block')
     op.drop_index(op.f('ix_data_block_hash'), table_name='data_block')
@@ -719,6 +798,12 @@ def downgrade():
     op.drop_index(op.f('ix_data_account_search_index_block_id'), table_name='data_account_search_index')
     op.drop_index(op.f('ix_data_account_search_index_account_id'), table_name='data_account_search_index')
     op.drop_table('data_account_search_index')
+    op.drop_index(op.f('ix_data_account_info_snapshot_block_id'), table_name='data_account_info_snapshot')
+    op.drop_index(op.f('ix_data_account_info_snapshot_balance_total'), table_name='data_account_info_snapshot')
+    op.drop_index(op.f('ix_data_account_info_snapshot_balance_reserved'), table_name='data_account_info_snapshot')
+    op.drop_index(op.f('ix_data_account_info_snapshot_balance_free'), table_name='data_account_info_snapshot')
+    op.drop_index(op.f('ix_data_account_info_snapshot_account_id'), table_name='data_account_info_snapshot')
+    op.drop_table('data_account_info_snapshot')
     op.drop_index(op.f('ix_data_account_index_audit_block_id'), table_name='data_account_index_audit')
     op.drop_index(op.f('ix_data_account_index_audit_account_index_id'), table_name='data_account_index_audit')
     op.drop_index(op.f('ix_data_account_index_audit_account_id'), table_name='data_account_index_audit')
@@ -728,9 +813,29 @@ def downgrade():
     op.drop_table('data_account_index')
     op.drop_index(op.f('ix_data_account_audit_block_id'), table_name='data_account_audit')
     op.drop_table('data_account_audit')
+    op.drop_index(op.f('ix_data_account_was_validator'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_was_tech_comm_member'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_was_sudo'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_was_registrar'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_was_nominator'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_was_council_member'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_parent_identity'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_is_validator'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_is_treasury'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_is_tech_comm_member'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_is_sudo'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_is_registrar'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_is_nominator'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_is_council_member'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_is_contract'), table_name='data_account')
     op.drop_index(op.f('ix_data_account_index_address'), table_name='data_account')
     op.drop_index(op.f('ix_data_account_identity_display'), table_name='data_account')
     op.drop_index(op.f('ix_data_account_hash_blake2b'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_has_subidentity'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_has_identity'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_balance_total'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_balance_reserved'), table_name='data_account')
+    op.drop_index(op.f('ix_data_account_balance_free'), table_name='data_account')
     op.drop_index(op.f('ix_data_account_address'), table_name='data_account')
     op.drop_table('data_account')
     # ### end Alembic commands ###

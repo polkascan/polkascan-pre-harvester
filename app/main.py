@@ -29,10 +29,11 @@ from app.middleware.context import ContextMiddleware
 from app.middleware.sessionmanager import SQLAlchemySessionManager
 
 from app.resources.harvester import PolkascanStartHarvesterResource, PolkascanStopHarvesterResource, \
-    PolkascanStatusHarvesterResource, PolkascanProcessBlockResource, \
-    PolkaScanCheckHarvesterTaskResource, SequenceBlockResource, StartSequenceBlockResource, StartIntegrityResource
+    PolkascanHarvesterStatusResource, PolkascanProcessBlockResource, \
+    PolkaScanCheckHarvesterTaskResource, SequenceBlockResource, StartSequenceBlockResource, StartIntegrityResource, \
+    RebuildSearchIndexResource, ProcessGenesisBlockResource, PolkascanHarvesterQueueResource, RebuildAccountInfoResource
 from app.resources.tools import ExtractMetadataResource, ExtractExtrinsicsResource, \
-    HealthCheckResource, ExtractEventsResource
+    HealthCheckResource, ExtractEventsResource, CreateSnapshotResource
 
 # Database connection
 engine = create_engine(DB_CONNECTION, echo=DEBUG, isolation_level="READ_UNCOMMITTED")
@@ -46,13 +47,19 @@ app.add_route('/healthcheck', HealthCheckResource())
 
 app.add_route('/start', PolkascanStartHarvesterResource())
 app.add_route('/stop', PolkascanStopHarvesterResource())
-app.add_route('/status', PolkascanStatusHarvesterResource())
+app.add_route('/status', PolkascanHarvesterStatusResource())
+app.add_route('/queue', PolkascanHarvesterQueueResource())
 app.add_route('/process', PolkascanProcessBlockResource())
 app.add_route('/sequence', SequenceBlockResource())
 app.add_route('/sequencer/start', StartSequenceBlockResource())
 app.add_route('/integrity-check', StartIntegrityResource())
+app.add_route('/process-genesis', ProcessGenesisBlockResource())
+app.add_route('/rebuild-searchindex', RebuildSearchIndexResource())
+app.add_route('/rebuild-balances', RebuildAccountInfoResource())
 app.add_route('/task/result/{task_id}', PolkaScanCheckHarvesterTaskResource())
 
 app.add_route('/tools/metadata/extract', ExtractMetadataResource())
 app.add_route('/tools/extrinsics/extract', ExtractExtrinsicsResource())
 app.add_route('/tools/events/extract', ExtractEventsResource())
+app.add_route('/tools/balance-snapshot', CreateSnapshotResource())
+

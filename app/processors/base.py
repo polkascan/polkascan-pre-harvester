@@ -132,11 +132,25 @@ class EventProcessor(Processor):
     module_id = None
     event_id = None
 
-    def __init__(self, block, event, extrinsic=None, metadata=None):
+    def __init__(self, block, event, extrinsic=None, metadata=None, substrate=None):
         self.block = block
         self.event = event
         self.extrinsic = extrinsic
         self.metadata = metadata
+        self.substrate = substrate
+
+    def add_search_index(self, index_type_id, account_id=None, sorting_value=None):
+        return SearchIndex(
+            index_type_id=index_type_id,
+            block_id=self.block.id,
+            event_idx=self.event.event_idx,
+            extrinsic_idx=self.event.extrinsic_idx,
+            account_id=account_id,
+            sorting_value=sorting_value
+        )
+
+    def process_search_index(self, db_session):
+        pass
 
     def add_search_index(self, index_type_id, account_id=None, sorting_value=None):
         return SearchIndex(
@@ -157,13 +171,29 @@ class ExtrinsicProcessor(Processor):
     module_id = None
     call_id = None
 
-    def __init__(self, block, extrinsic):
+    def __init__(self, block, extrinsic, substrate=None):
         self.block = block
         self.extrinsic = extrinsic
+        self.substrate = substrate
+
+    def add_search_index(self, index_type_id, account_id=None, sorting_value=None):
+        return SearchIndex(
+            index_type_id=index_type_id,
+            block_id=self.block.id,
+            event_idx=None,
+            extrinsic_idx=self.extrinsic.extrinsic_idx,
+            account_id=account_id,
+            sorting_value=sorting_value
+        )
+
+    def process_search_index(self, db_session):
+        pass
 
 
 class BlockProcessor(Processor):
 
-    def __init__(self, block, sequenced_block=None):
+    def __init__(self, block, sequenced_block=None, substrate=None, harvester=None):
         self.block = block
         self.sequenced_block = sequenced_block
+        self.substrate = substrate
+        self.harvester = harvester
