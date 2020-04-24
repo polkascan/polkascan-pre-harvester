@@ -1051,6 +1051,36 @@ class PolkascanHarvesterService(BaseService):
         except ValueError:
             pass
 
+    def update_account_balances(self):
+        # set balances according to most recent snapshot
+        account_info = self.db_session.execute("""
+                        select
+                           a.account_id, 
+                           a.balance_total,
+                           a.balance_free,
+                           a.balance_reserved,
+                           a.nonce
+                    from
+                         data_account_info_snapshot as a
+                    inner join (
+                        select 
+                            account_id, max(block_id) as max_block_id 
+                        from data_account_info_snapshot 
+                        group by account_id
+                    ) as b
+                    on a.account_id = b.account_id and a.block_id = b.max_block_id
+                    """)
+
+        for account_id, balance_total, balance_free, balance_reserved, nonce in account_info:
+            Account.query(self.db_session).filter_by(id=account_id).update(
+                {
+                    Account.balance_total: balance_total,
+                    Account.balance_free: balance_free,
+                    Account.balance_reserved: balance_reserved,
+                    Account.nonce: nonce,
+                }, synchronize_session='fetch'
+            )
+
 
 
 

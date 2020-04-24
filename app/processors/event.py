@@ -1217,13 +1217,12 @@ class CouncilMemberKicked(EventProcessor):
 
     def process_search_index(self, db_session):
 
-        for member_struct in self.event.attributes[0]['value']:
-            search_index = self.add_search_index(
-                index_type_id=settings.SEARCH_INDEX_COUNCIL_MEMBER_KICKED,
-                account_id=member_struct['account'].replace('0x', '')
-            )
+        search_index = self.add_search_index(
+            index_type_id=settings.SEARCH_INDEX_COUNCIL_MEMBER_KICKED,
+            account_id=self.event.attributes[0]['value'].replace('0x', '')
+        )
 
-            search_index.save(db_session)
+        search_index.save(db_session)
 
 
 class CouncilMemberRenounced(EventProcessor):
@@ -1233,13 +1232,12 @@ class CouncilMemberRenounced(EventProcessor):
 
     def process_search_index(self, db_session):
 
-        for member_struct in self.event.attributes[0]['value']:
-            search_index = self.add_search_index(
-                index_type_id=settings.SEARCH_INDEX_COUNCIL_CANDIDACY_RENOUNCED,
-                account_id=member_struct['account'].replace('0x', '')
-            )
+        search_index = self.add_search_index(
+            index_type_id=settings.SEARCH_INDEX_COUNCIL_CANDIDACY_RENOUNCED,
+            account_id=self.event.attributes[0]['value'].replace('0x', '')
+        )
 
-            search_index.save(db_session)
+        search_index.save(db_session)
 
 
 class CouncilProposedEventProcessor(EventProcessor):

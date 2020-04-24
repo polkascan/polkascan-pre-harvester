@@ -457,11 +457,12 @@ class AccountInfoBlockProcessor(BlockProcessor):
         if self.block.id >= settings.BALANCE_SYSTEM_ACCOUNT_MIN_BLOCK:
 
             if self.block.id % settings.BALANCE_FULL_SNAPSHOT_INTERVAL == 0:
+                from app.tasks import update_balances_in_block
+
                 if settings.CELERY_RUNNING:
-                    from app.tasks import update_balances_in_block
                     update_balances_in_block.delay(self.block.id)
                 else:
-                    self.harvester.create_full_balance_snaphot(self.block.id)
+                    update_balances_in_block(self.block.id)
             else:
                 # Retrieve unique accounts in all searchindex records for current block
                 for search_index in db_session.query(distinct(SearchIndex.account_id)).filter_by(block_id=self.block.id):

@@ -347,6 +347,11 @@ def balance_snapshot(self, account_id=None, block_start=1, block_end=None, block
 @app.task(base=BaseTask, bind=True)
 def update_balances_in_block(self, block_id):
     harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+
     harvester.create_full_balance_snaphot(block_id)
     self.session.commit()
+
+    harvester.update_account_balances()
+    self.session.commit()
+
     return 'Snapshot created for block {}'.format(block_id)
