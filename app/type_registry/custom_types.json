@@ -1,0 +1,251 @@
+{
+  "runtime_id": 1062,
+  "types": {
+    "Address": "AccountIdAddress",
+    "BlockNumber": "U32",
+    "LeasePeriod": "BlockNumber",
+    "Weight": "u64",
+    "SessionKeysPolkadot": {
+      "type": "struct",
+      "type_mapping": [
+         ["grandpa", "AccountId"],
+         ["babe", "AccountId"],
+         ["im_online", "AccountId"],
+         ["authority_discovery", "AccountId"],
+         ["parachains", "AccountId"]
+      ]
+    },
+    "Keys": "SessionKeysPolkadot",
+    "DispatchInfo": {
+      "type": "struct",
+      "type_mapping": [
+         ["weight", "Weight"],
+         ["class", "DispatchClass"],
+         ["paysFee", "Pays"]
+      ]
+    }
+  },
+  "versioning": [
+    {
+      "runtime_range": [1019, 1031],
+      "types": {
+        "DispatchError": {
+          "type": "struct",
+          "type_mapping": [
+            ["module", "Option<u8>"],
+            ["error", "u8"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1032, null],
+      "types": {
+        "DispatchError": {
+          "type": "enum",
+          "type_mapping": [
+            ["Other", "Null"],
+            ["CannotLookup", "Null"],
+            ["BadOrigin", "Null"],
+            ["Module", "DispatchErrorModule"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1019, 1037],
+      "types": {
+        "IdentityInfo": {
+          "type": "struct",
+          "type_mapping": [
+             ["additional", "Vec<IdentityInfoAdditional>"],
+             ["display", "Data"],
+             ["legal", "Data"],
+             ["web", "Data"],
+             ["riot", "Data"],
+             ["email", "Data"],
+             ["pgpFingerprint", "Option<H160>"],
+             ["image", "Data"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1038, null],
+      "types": {
+        "IdentityInfo": {
+          "type": "struct",
+          "type_mapping": [
+             ["additional", "Vec<IdentityInfoAdditional>"],
+             ["display", "Data"],
+             ["legal", "Data"],
+             ["web", "Data"],
+             ["riot", "Data"],
+             ["email", "Data"],
+             ["pgpFingerprint", "Option<H160>"],
+             ["image", "Data"],
+             ["twitter", "Data"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1019, 1042],
+      "types": {
+        "SlashingSpans": {
+          "type": "struct",
+          "type_mapping": [
+             ["spanIndex", "SpanIndex"],
+             ["lastStart", "EraIndex"],
+             ["prior", "Vec<EraIndex>"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1043, null],
+      "types": {
+        "SlashingSpans": {
+          "type": "struct",
+          "type_mapping": [
+             ["spanIndex", "SpanIndex"],
+             ["lastStart", "EraIndex"],
+             ["lastNonzeroSlash", "EraIndex"],
+             ["prior", "Vec<EraIndex>"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1019, 1045],
+      "types": {
+        "Address": "RawAddress",
+        "StakingLedger<AccountId, BalanceOf>": {
+          "type": "struct",
+          "type_mapping": [
+             ["stash", "AccountId"],
+             ["total", "Compact<Balance>"],
+             ["active", "Compact<Balance>"],
+             ["unlocking", "Vec<UnlockChunk<Balance>>"]
+          ]
+        },
+        "BalanceLock": {
+          "type": "struct",
+          "type_mapping": [
+             ["id", "LockIdentifier"],
+             ["amount", "Balance"],
+             ["until", "BlockNumber"],
+             ["reasons", "WithdrawReasons"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1050, null],
+      "types": {
+        "Address": "AccountIdAddress",
+        "StakingLedger<AccountId, BalanceOf>": {
+          "type": "struct",
+          "type_mapping": [
+            ["stash", "AccountId"],
+            ["total", "Compact<Balance>"],
+            ["active", "Compact<Balance>"],
+            ["unlocking", "Vec<UnlockChunk<Balance>>"],
+            ["lastReward", "Option<EraIndex>"]
+          ]
+        },
+        "BalanceLock": {
+          "type": "struct",
+          "type_mapping": [
+             ["id", "LockIdentifier"],
+             ["amount", "Balance"],
+             ["reasons", "Reasons"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1019, 1054],
+      "types": {
+        "ReferendumInfo": {
+          "type": "struct",
+          "type_mapping": [
+             ["end", "BlockNumber"],
+             ["proposal", "Proposal"],
+             ["threshold", "VoteThreshold"],
+             ["delay", "BlockNumber"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1054, null],
+      "types": {
+        "ReferendumInfo": {
+          "type": "enum",
+          "type_mapping": [
+            ["Ongoing", "ReferendumStatus"],
+            ["Finished", "ReferendumInfoFinished"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1019, 1056],
+      "types": {
+        "Weight": "u32"
+      }
+    },
+    {
+      "runtime_range": [1057, null],
+      "types": {
+        "Weight": "u64"
+      }
+    },
+    {
+      "runtime_range": [1019, 1061],
+      "types": {
+        "Heartbeat": {
+          "type": "struct",
+          "type_mapping": [
+             ["blockNumber", "BlockNumber"],
+             ["networkState", "OpaqueNetworkState"],
+             ["sessionIndex", "SessionIndex"],
+             ["authorityIndex", "AuthIndex"]
+          ]
+        },
+        "DispatchInfo": {
+          "type": "struct",
+          "type_mapping": [
+             ["weight", "Weight"],
+             ["class", "DispatchClass"],
+             ["paysFee", "bool"]
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [1062, null],
+      "types": {
+        "Heartbeat": {
+          "type": "struct",
+          "type_mapping": [
+             ["blockNumber", "BlockNumber"],
+             ["networkState", "OpaqueNetworkState"],
+             ["sessionIndex", "SessionIndex"],
+             ["authorityIndex", "AuthIndex"],
+             ["validatorsLen", "u32"]
+          ]
+        },
+        "DispatchInfo": {
+          "type": "struct",
+          "type_mapping": [
+             ["weight", "Weight"],
+             ["class", "DispatchClass"],
+             ["paysFee", "Pays"]
+          ]
+        }
+      }
+    }
+  ]
+}

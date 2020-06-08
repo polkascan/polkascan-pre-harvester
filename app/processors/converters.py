@@ -31,7 +31,7 @@ from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
 from scalecodec.block import ExtrinsicsDecoder
 
 from app.processors.base import BaseService, ProcessorRegistry
-from scalecodec.type_registry import load_type_registry_preset
+from scalecodec.type_registry import load_type_registry_file
 from substrateinterface import SubstrateInterface, SubstrateRequestException, xxh128
 
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
@@ -54,10 +54,19 @@ class BlockIntegrityError(Exception):
 
 class PolkascanHarvesterService(BaseService):
 
-    def __init__(self, db_session, type_registry='default'):
+    def __init__(self, db_session, type_registry='default', type_registry_file=None):
         self.db_session = db_session
-        self.substrate = SubstrateInterface(settings.SUBSTRATE_RPC_URL, type_registry_preset=type_registry)
-        self.type_registry = type_registry
+
+        if type_registry_file:
+            custom_type_registry = load_type_registry_file(type_registry_file)
+        else:
+            custom_type_registry = None
+
+        self.substrate = SubstrateInterface(
+            url=settings.SUBSTRATE_RPC_URL,
+            type_registry=custom_type_registry,
+            type_registry_preset=type_registry
+        )
         self.metadata_store = {}
 
     def process_genesis(self, block):

@@ -35,7 +35,7 @@ from app.schemas import load_schema
 from app.processors.converters import PolkascanHarvesterService, BlockAlreadyAdded, BlockIntegrityError
 from substrateinterface import SubstrateInterface
 from app.tasks import accumulate_block_recursive, start_harvester, rebuild_search_index, rebuild_account_info_snapshot
-from app.settings import SUBSTRATE_RPC_URL, TYPE_REGISTRY
+from app.settings import SUBSTRATE_RPC_URL, TYPE_REGISTRY, TYPE_REGISTRY_FILE
 
 
 class PolkascanStartHarvesterResource(BaseResource):
@@ -159,7 +159,11 @@ class PolkascanProcessBlockResource(BaseResource):
 
         if block_hash:
             print('Processing {} ...'.format(block_hash))
-            harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+            harvester = PolkascanHarvesterService(
+                db_session=self.session,
+                type_registry=TYPE_REGISTRY,
+                type_registry_file=TYPE_REGISTRY_FILE
+            )
 
             block = Block.query(self.session).filter(Block.hash == block_hash).first()
 
@@ -208,7 +212,11 @@ class SequenceBlockResource(BaseResource):
         if block:
             print('Sequencing #{} ...'.format(block.id))
 
-            harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+            harvester = PolkascanHarvesterService(
+                db_session=self.session,
+                type_registry=TYPE_REGISTRY,
+                type_registry_file=TYPE_REGISTRY_FILE
+            )
 
             if block.id == 1:
                 # Add genesis block
@@ -252,7 +260,11 @@ class StartSequenceBlockResource(BaseResource):
             sequencer_task.value = "123"
             sequencer_task.save(self.session)
 
-            harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+            harvester = PolkascanHarvesterService(
+                db_session=self.session,
+                type_registry=TYPE_REGISTRY,
+                type_registry_file=TYPE_REGISTRY_FILE
+            )
             result = harvester.start_sequencer()
 
             sequencer_task.value = None
@@ -279,7 +291,11 @@ class ProcessGenesisBlockResource(BaseResource):
 
     def on_post(self, req, resp):
 
-        harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+        harvester = PolkascanHarvesterService(
+            db_session=self.session,
+            type_registry=TYPE_REGISTRY,
+            type_registry_file=TYPE_REGISTRY_FILE
+        )
         block = Block.query(self.session).get(1)
         if block:
             result = harvester.process_genesis(block=block)
@@ -296,7 +312,11 @@ class ProcessGenesisBlockResource(BaseResource):
 class StartIntegrityResource(BaseResource):
 
     def on_post(self, req, resp):
-        harvester = PolkascanHarvesterService(self.session, type_registry=TYPE_REGISTRY)
+        harvester = PolkascanHarvesterService(
+            db_session=self.session,
+            type_registry=TYPE_REGISTRY,
+            type_registry_file=TYPE_REGISTRY_FILE
+        )
         try:
             result = harvester.integrity_checks()
         except BlockIntegrityError as e:

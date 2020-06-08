@@ -17,5 +17,3 @@
 #  along with Polkascan. If not, see <http://www.gnu.org/licenses/>.
 #
 #  __init__.py
-
-from app.custom_types import *
