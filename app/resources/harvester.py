@@ -220,7 +220,12 @@ class SequenceBlockResource(BaseResource):
 
             if block.id == 1:
                 # Add genesis block
-                parent_block = harvester.add_block(block.parent_hash)
+                try:
+                    parent_block = harvester.add_block(block.parent_hash)
+                except:
+                    #already added
+                    pass
+
 
             block_total = BlockTotal.query(self.session).filter_by(id=block.id).first()
             parent_block = Block.query(self.session).filter(Block.id == block.id - 1).first()
