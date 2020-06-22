@@ -239,7 +239,7 @@ class PolkascanHarvesterService(BaseService):
 
                     print('store version to db', self.substrate.metadata_decoder.version)
 
-                    for module in self.substrate.metadata_decoder.metadata.modules:
+                    for module_index, module in enumerate(self.substrate.metadata_decoder.metadata.modules):
 
                         # Check if module exists
                         if RuntimeModule.query(self.db_session).filter_by(
@@ -405,6 +405,7 @@ class PolkascanHarvesterService(BaseService):
                                 runtime_error = RuntimeErrorMessage(
                                     spec_version=spec_version,
                                     module_id=module_id,
+                                    module_index=module_index,
                                     index=idx,
                                     name=error.name,
                                     documentation='\n'.join(error.docs)
