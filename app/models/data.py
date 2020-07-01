@@ -369,7 +369,7 @@ class AccountIndexAudit(BaseModel):
 
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
     account_index_id = sa.Column(sa.Integer(), nullable=True, index=True)
-    account_id = sa.Column(sa.String(64), index=True, nullable=False)
+    account_id = sa.Column(sa.String(64), index=True, nullable=True)
     block_id = sa.Column(sa.Integer(), index=True, nullable=False)
     extrinsic_idx = sa.Column(sa.Integer())
     event_idx = sa.Column(sa.Integer())

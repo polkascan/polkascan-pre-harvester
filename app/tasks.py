@@ -86,6 +86,7 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
     )
 
     harvester.metadata_store = self.metadata_store
+    harvester.substrate.metadata_cache = self.metadata_store
 
     # If metadata store isn't initialized yet, perform some tests
     if not harvester.metadata_store:
