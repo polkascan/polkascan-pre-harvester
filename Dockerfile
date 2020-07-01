@@ -1,5 +1,5 @@
 # base image
-FROM python:3.6-buster
+FROM python:3.8-buster
 ENV PYTHONUNBUFFERED 1
 
 # set working directory
