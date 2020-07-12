@@ -18,6 +18,8 @@
 #
 #  converters.py
 import json
+import logging
+
 import math
 
 from app import settings
@@ -26,18 +28,25 @@ from sqlalchemy import func, distinct
 from sqlalchemy.exc import SQLAlchemyError
 from app.models.harvester import Status
 from app.processors import NewSessionEventProcessor, Log, SlashEventProcessor, BalancesTransferProcessor
-from scalecodec.base import ScaleBytes, ScaleDecoder
+from scalecodec.base import ScaleBytes, ScaleDecoder, RuntimeConfiguration
 from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
 from scalecodec.block import ExtrinsicsDecoder
 
 from app.processors.base import BaseService, ProcessorRegistry
 from scalecodec.type_registry import load_type_registry_file
-from substrateinterface import SubstrateInterface, SubstrateRequestException, xxh128
+from substrateinterface import SubstrateInterface, SubstrateRequestException, xxh128, logger
 
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
     AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog, RuntimeErrorMessage, Account, \
     AccountInfoSnapshot, SearchIndex
+
+
+if settings.DEBUG:
+    # Set Logger level to Debug
+    logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    logger.addHandler(ch)
 
 
 class HarvesterCouldNotAddBlock(Exception):
@@ -210,7 +219,11 @@ class PolkascanHarvesterService(BaseService):
             runtime = Runtime.query(self.db_session).get(spec_version)
 
             if runtime:
-                self.metadata_store[spec_version] = self.substrate.get_block_metadata(block_hash=block_hash)
+
+                if spec_version in self.substrate.metadata_cache:
+                    self.metadata_store[spec_version] = self.substrate.metadata_cache[spec_version]
+                else:
+                    self.metadata_store[spec_version] = self.substrate.get_block_metadata(block_hash=block_hash)
 
             else:
                 self.db_session.begin(subtransactions=True)
@@ -514,7 +527,13 @@ class PolkascanHarvesterService(BaseService):
         events = []
 
         try:
+            # TODO implemented solution in substrate interface for runtime transition blocks
+            # Events are decoded against runtime of parent block
+            RuntimeConfiguration().set_active_spec_version_id(parent_spec_version)
             events_decoder = self.substrate.get_block_events(block_hash, self.metadata_store[parent_spec_version])
+
+            # Revert back to current runtime
+            RuntimeConfiguration().set_active_spec_version_id(block.spec_version_id)
 
             event_idx = 0
 

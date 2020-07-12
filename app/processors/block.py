@@ -65,8 +65,11 @@ class LogBlockProcessor(BlockProcessor):
                         ScaleBytes(bytearray.fromhex(log.data['value']['data'].replace('0x', '')))
                     ).decode()
 
-                    if babe_predigest['value']:
-                        log.data['value']['data'] = babe_predigest['value']
+                    if len(list(babe_predigest.values())) > 0:
+
+                        babe_predigest_value = list(babe_predigest.values())[0]
+
+                        log.data['value']['data'] = babe_predigest_value
                         self.block.authority_index = log.data['value']['data']['authorityIndex']
                         self.block.slot_number = log.data['value']['data']['slotNumber']
 
@@ -223,6 +226,41 @@ class AccountBlockProcessor(BlockProcessor):
                 # if account_audit.type_id != ACCOUNT_AUDIT_TYPE_NEW:
                 #     account.is_reaped = True
                 #     account.count_reaped = 1
+
+            account.save(db_session)
+
+        # Until SUDO and batch calls are processed separately we need to do a safety check to be sure we include all
+        # accounts that have activity (lookup in account_index) in current block
+        # TODO implement calls
+
+        for search_index in db_session.query(SearchIndex.account_id).filter(
+                SearchIndex.block_id == self.block.id,
+                SearchIndex.account_id.notin_(db_session.query(Account.id))
+        ).distinct():
+
+            account = Account(
+                id=search_index.account_id,
+                address=ss58_encode(search_index.account_id, settings.SUBSTRATE_ADDRESS_TYPE),
+                hash_blake2b=blake2_256(binascii.unhexlify(search_index.account_id)),
+                created_at_block=self.block.id,
+                updated_at_block=self.block.id
+            )
+
+            try:
+                account_info_data = self.substrate.get_runtime_state(
+                    module='System',
+                    storage_function='Account',
+                    params=['0x{}'.format(account.id)],
+                    block_hash=self.block.hash
+                ).get('result')
+
+                if account_info_data:
+                    account.balance_free = account_info_data["data"]["free"]
+                    account.balance_reserved = account_info_data["data"]["reserved"]
+                    account.balance_total = account_info_data["data"]["free"] + account_info_data["data"]["reserved"]
+                    account.nonce = account_info_data["nonce"]
+            except ValueError:
+                pass
 
             account.save(db_session)
 
@@ -423,30 +461,31 @@ class IdentityJudgementBlockProcessor(BlockProcessor):
                         created_at_block=self.block.id
                     )
 
-                judgement.judgement = identity_audit.data['judgement']
-                judgement.updated_at_block = self.block.id
+                if identity_audit.data:
+                    judgement.judgement = identity_audit.data.get('judgement')
+                    judgement.updated_at_block = self.block.id
 
-                judgement.save(db_session)
+                    judgement.save(db_session)
 
-                account = Account.query(db_session).get(identity_audit.account_id)
+                    account = Account.query(db_session).get(identity_audit.account_id)
 
-                if account:
+                    if account:
 
-                    if judgement.judgement in ['Reasonable', 'KnownGood']:
-                        account.identity_judgement_good += 1
+                        if judgement.judgement in ['Reasonable', 'KnownGood']:
+                            account.identity_judgement_good += 1
 
-                    if judgement.judgement in ['LowQuality', 'Erroneous']:
-                        account.identity_judgement_bad += 1
+                        if judgement.judgement in ['LowQuality', 'Erroneous']:
+                            account.identity_judgement_bad += 1
 
-                    account.save(db_session)
+                        account.save(db_session)
 
-                    if account.has_subidentity:
-                        # Update sub identities
-                        sub_accounts = Account.query(db_session).filter_by(parent_identity=account.id)
-                        for sub_account in sub_accounts:
-                            sub_account.identity_judgement_good = account.identity_judgement_good
-                            sub_account.identity_judgement_bad = account.identity_judgement_bad
-                            sub_account.save(db_session)
+                        if account.has_subidentity:
+                            # Update sub identities
+                            sub_accounts = Account.query(db_session).filter_by(parent_identity=account.id)
+                            for sub_account in sub_accounts:
+                                sub_account.identity_judgement_good = account.identity_judgement_good
+                                sub_account.identity_judgement_bad = account.identity_judgement_bad
+                                sub_account.save(db_session)
 
 
 class AccountInfoBlockProcessor(BlockProcessor):
@@ -454,23 +493,21 @@ class AccountInfoBlockProcessor(BlockProcessor):
     def accumulation_hook(self, db_session):
         # Store in AccountInfoSnapshot for all processed search indices and per 10000 blocks
 
-        if self.block.id >= settings.BALANCE_SYSTEM_ACCOUNT_MIN_BLOCK:
+        if self.block.id % settings.BALANCE_FULL_SNAPSHOT_INTERVAL == 0:
+            from app.tasks import update_balances_in_block
 
-            if self.block.id % settings.BALANCE_FULL_SNAPSHOT_INTERVAL == 0:
-                from app.tasks import update_balances_in_block
-
-                if settings.CELERY_RUNNING:
-                    update_balances_in_block.delay(self.block.id)
-                else:
-                    update_balances_in_block(self.block.id)
+            if settings.CELERY_RUNNING:
+                update_balances_in_block.delay(self.block.id)
             else:
-                # Retrieve unique accounts in all searchindex records for current block
-                for search_index in db_session.query(distinct(SearchIndex.account_id)).filter_by(block_id=self.block.id):
-                    self.harvester.create_balance_snapshot(
-                        block_id=self.block.id,
-                        block_hash=self.block.hash,
-                        account_id=search_index[0]
-                    )
+                update_balances_in_block(self.block.id)
+        else:
+            # Retrieve unique accounts in all searchindex records for current block
+            for search_index in db_session.query(distinct(SearchIndex.account_id)).filter_by(block_id=self.block.id):
+                self.harvester.create_balance_snapshot(
+                    block_id=self.block.id,
+                    block_hash=self.block.hash,
+                    account_id=search_index[0]
+                )
 
     def sequencing_hook(self, db_session, parent_block, parent_sequenced_block):
         # Update Account according to AccountInfoSnapshot
