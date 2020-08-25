@@ -612,6 +612,11 @@ class PolkascanHarvesterService(BaseService):
             # Lookup result of extrinsic
             extrinsic_success = extrinsic_success_idx.get(extrinsic_idx, False)
 
+            if extrinsics_decoder.era:
+                era = extrinsics_decoder.era.raw_value
+            else:
+                era = None
+
             model = Extrinsic(
                 block_id=block_id,
                 extrinsic_idx=extrinsic_idx,
@@ -628,7 +633,7 @@ class PolkascanHarvesterService(BaseService):
                 account_idx=extrinsic_data.get('account_idx'),
                 signature=extrinsic_data.get('signature'),
                 nonce=extrinsic_data.get('nonce'),
-                era=extrinsic_data.get('era'),
+                era=era,
                 call=extrinsic_data.get('call_code'),
                 module_id=extrinsic_data.get('call_module'),
                 call_id=extrinsic_data.get('call_function'),
