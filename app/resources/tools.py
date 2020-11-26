@@ -23,7 +23,7 @@ import falcon
 from app.processors.converters import PolkascanHarvesterService
 from app.resources.base import BaseResource
 
-from scalecodec.base import ScaleBytes
+from scalecodec.base import ScaleBytes, RuntimeConfiguration
 from scalecodec.metadata import MetadataDecoder
 from scalecodec.block import EventsDecoder, ExtrinsicsDecoder, ExtrinsicsBlock61181Decoder
 
@@ -37,7 +37,7 @@ class ExtractMetadataResource(BaseResource):
     def on_get(self, req, resp):
 
         if 'block_hash' in req.params:
-            substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+            substrate = SubstrateInterface(SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
             metadata = substrate.get_block_metadata(req.params.get('block_hash'))
 
             resp.status = falcon.HTTP_200
@@ -56,7 +56,7 @@ class ExtractExtrinsicsResource(BaseResource):
 
     def on_get(self, req, resp):
 
-        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+        substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
 
         # Get extrinsics
         json_block = substrate.get_chain_block(req.params.get('block_hash'))
@@ -88,7 +88,7 @@ class ExtractEventsResource(BaseResource):
 
     def on_get(self, req, resp):
 
-        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+        substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
 
         # Get Parent hash
         json_block = substrate.get_block_header(req.params.get('block_hash'))
@@ -112,7 +112,7 @@ class StorageValidatorResource(BaseResource):
 
     def on_get(self, req, resp):
 
-        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+        substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
 
         resp.status = falcon.HTTP_200
 

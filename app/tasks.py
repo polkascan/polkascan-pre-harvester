@@ -25,7 +25,7 @@ import celery
 from celery.result import AsyncResult
 
 from app import settings
-from scalecodec.base import ScaleDecoder, ScaleBytes
+from scalecodec.base import ScaleDecoder, ScaleBytes, RuntimeConfiguration
 
 from sqlalchemy import create_engine, text, distinct
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
@@ -96,7 +96,7 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
 
         if not max_block_id:
             # Speed up accumulating by creating several entry points
-            substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+            substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
             block_nr = substrate.get_block_number(block_hash)
             if block_nr > 100:
                 for entry_point in range(0, block_nr, block_nr // 4)[1:-1]:
@@ -206,7 +206,7 @@ def rebuilding_search_index(self, search_index_id=None, truncate=False):
 @app.task(base=BaseTask, bind=True)
 def start_harvester(self, check_gaps=False):
 
-    substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+    substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
 
     block_sets = []
 
@@ -350,7 +350,7 @@ def balance_snapshot(self, account_id=None, block_start=1, block_end=None, block
 
         if block_end is None:
             # Set block end to chaintip
-            substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+            substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
             block_end = substrate.get_block_number(substrate.get_chain_finalised_head())
 
         block_range = range(block_start, block_end + 1)

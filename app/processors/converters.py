@@ -74,7 +74,8 @@ class PolkascanHarvesterService(BaseService):
         self.substrate = SubstrateInterface(
             url=settings.SUBSTRATE_RPC_URL,
             type_registry=custom_type_registry,
-            type_registry_preset=type_registry
+            type_registry_preset=type_registry,
+            runtime_config=RuntimeConfiguration()
         )
         self.metadata_store = {}
 
@@ -791,7 +792,7 @@ class PolkascanHarvesterService(BaseService):
     def integrity_checks(self):
 
         # 1. Check finalized head
-        substrate = SubstrateInterface(settings.SUBSTRATE_RPC_URL)
+        substrate = SubstrateInterface(url=settings.SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
 
         if settings.FINALIZATION_BY_BLOCK_CONFIRMATIONS > 0:
             finalized_block_hash = substrate.get_chain_head()
@@ -874,7 +875,7 @@ class PolkascanHarvesterService(BaseService):
         return {'integrity_head': integrity_head.value}
 
     def start_sequencer(self):
-        integrity_status = self.integrity_checks()
+        # integrity_status = self.integrity_checks()
         self.db_session.commit()
 
         block_nr = None

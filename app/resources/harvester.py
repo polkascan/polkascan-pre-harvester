@@ -25,6 +25,7 @@ import falcon
 import pytz
 from celery.result import AsyncResult
 from falcon.media.validators.jsonschema import validate
+from scalecodec.base import RuntimeConfiguration
 from sqlalchemy import text, func
 
 from app import settings
@@ -127,7 +128,7 @@ class PolkascanHarvesterStatusResource(BaseResource):
             best_block_datetime = None
             best_block_nr = None
 
-        substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+        substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
         chain_head_block_id = substrate.get_block_number(substrate.get_chain_head())
         chain_finalized_block_id = substrate.get_block_number(substrate.get_chain_finalised_head())
 
@@ -149,7 +150,7 @@ class PolkascanProcessBlockResource(BaseResource):
         block_hash = None
 
         if req.media.get('block_id'):
-            substrate = SubstrateInterface(SUBSTRATE_RPC_URL)
+            substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
             block_hash = substrate.get_block_hash(req.media.get('block_id'))
         elif req.media.get('block_hash'):
             block_hash = req.media.get('block_hash')
