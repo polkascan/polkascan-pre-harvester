@@ -25,7 +25,7 @@ from app.resources.base import BaseResource
 
 from scalecodec.base import ScaleBytes, RuntimeConfiguration
 from scalecodec.metadata import MetadataDecoder
-from scalecodec.block import EventsDecoder, ExtrinsicsDecoder, ExtrinsicsBlock61181Decoder
+from scalecodec.block import EventsDecoder, ExtrinsicsDecoder
 
 from substrateinterface import SubstrateInterface
 from app.settings import SUBSTRATE_RPC_URL, SUBSTRATE_METADATA_VERSION
@@ -74,10 +74,7 @@ class ExtractExtrinsicsResource(BaseResource):
             result = []
 
             for extrinsic in extrinsics:
-                if int(json_block['block']['header']['number'], 16) == 61181:
-                    extrinsics_decoder = ExtrinsicsBlock61181Decoder(ScaleBytes(extrinsic), metadata=metadata_decoder)
-                else:
-                    extrinsics_decoder = ExtrinsicsDecoder(ScaleBytes(extrinsic), metadata=metadata_decoder)
+                extrinsics_decoder = ExtrinsicsDecoder(ScaleBytes(extrinsic), metadata=metadata_decoder)
                 result.append(extrinsics_decoder.decode())
 
             resp.status = falcon.HTTP_201

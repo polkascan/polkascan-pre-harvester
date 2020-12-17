@@ -33,7 +33,8 @@ from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCO
     IDENTITY_JUDGEMENT_TYPE_GIVEN
 
 from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
-from substrateinterface import SubstrateInterface, StorageFunctionNotFound
+from substrateinterface import SubstrateInterface
+from substrateinterface.exceptions import StorageFunctionNotFound
 
 
 class NewSessionEventProcessor(EventProcessor):

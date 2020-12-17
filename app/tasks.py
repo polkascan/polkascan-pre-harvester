@@ -36,8 +36,8 @@ from app.models.data import Extrinsic, Block, BlockTotal, Account, AccountInfoSn
 from app.models.harvester import Status
 from app.processors.converters import PolkascanHarvesterService, HarvesterCouldNotAddBlock, BlockAlreadyAdded, \
     BlockIntegrityError
-from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
-from substrateinterface import SubstrateInterface, xxh128
+
+from substrateinterface import SubstrateInterface
 
 from app.settings import DB_CONNECTION, DEBUG, SUBSTRATE_RPC_URL, TYPE_REGISTRY, FINALIZATION_ONLY, TYPE_REGISTRY_FILE
 

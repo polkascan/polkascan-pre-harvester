@@ -34,7 +34,9 @@ from scalecodec.block import ExtrinsicsDecoder
 
 from app.processors.base import BaseService, ProcessorRegistry
 from scalecodec.type_registry import load_type_registry_file
-from substrateinterface import SubstrateInterface, SubstrateRequestException, xxh128, logger
+from substrateinterface import SubstrateInterface, logger
+from substrateinterface.exceptions import SubstrateRequestException
+from substrateinterface.utils.hasher import xxh128
 
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
