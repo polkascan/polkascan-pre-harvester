@@ -257,6 +257,9 @@ class PolkascanHarvesterService(BaseService):
 
                 for module_index, module in enumerate(self.substrate.metadata_decoder.metadata.modules):
 
+                    if hasattr(module, 'index'):
+                        module_index = module.index
+
                     # Check if module exists
                     if RuntimeModule.query(self.db_session).filter_by(
                         spec_version=spec_version,
