@@ -880,7 +880,7 @@ class PolkascanHarvesterService(BaseService):
         return {'integrity_head': integrity_head.value}
 
     def start_sequencer(self):
-        # integrity_status = self.integrity_checks()
+        self.integrity_checks()
         self.db_session.commit()
 
         block_nr = None
@@ -945,7 +945,7 @@ class PolkascanHarvesterService(BaseService):
             parent_block = block
             sequencer_parent_block = sequenced_block
 
-        if block_nr:
+        if block_nr is None:
             return {'result': 'Finished at #{}'.format(block_nr)}
         else:
             return {'result': 'Nothing to sequence'}
