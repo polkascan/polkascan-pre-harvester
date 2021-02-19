@@ -218,7 +218,11 @@ class NewSessionEventProcessor(EventProcessor):
         nominators = []
         validation_session_lookup = {}
 
-        substrate = SubstrateInterface(url=settings.SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
+        substrate = SubstrateInterface(
+            url=settings.SUBSTRATE_RPC_URL,
+            runtime_config=RuntimeConfiguration(),
+            type_registry_preset=settings.TYPE_REGISTRY
+        )
 
         # Retrieve current era
         storage_call = RuntimeStorage.query(db_session).filter_by(

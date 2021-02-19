@@ -89,23 +89,23 @@ def accumulate_block_recursive(self, block_hash, end_block_hash=None):
     harvester.substrate.metadata_cache = self.metadata_store
 
     # If metadata store isn't initialized yet, perform some tests
-    if not harvester.metadata_store:
-        print('Init: create entrypoints')
-        # Check if blocks exists
-        max_block_id = self.session.query(func.max(Block.id)).one()[0]
-
-        if not max_block_id:
-            # Speed up accumulating by creating several entry points
-            substrate = SubstrateInterface(
-                url=SUBSTRATE_RPC_URL,
-                type_registry_preset=settings.TYPE_REGISTRY,
-                runtime_config=RuntimeConfiguration()
-            )
-            block_nr = substrate.get_block_number(block_hash)
-            if block_nr > 100:
-                for entry_point in range(0, block_nr, block_nr // 4)[1:-1]:
-                    entry_point_hash = substrate.get_block_hash(entry_point)
-                    accumulate_block_recursive.delay(entry_point_hash)
+    # if not harvester.metadata_store:
+    #     print('Init: create entrypoints')
+    #     # Check if blocks exists
+    #     max_block_id = self.session.query(func.max(Block.id)).one()[0]
+    #
+    #     if not max_block_id:
+    #         # Speed up accumulating by creating several entry points
+    #         substrate = SubstrateInterface(
+    #             url=SUBSTRATE_RPC_URL,
+    #             type_registry_preset=settings.TYPE_REGISTRY,
+    #             runtime_config=RuntimeConfiguration()
+    #         )
+    #         block_nr = substrate.get_block_number(block_hash)
+    #         if block_nr > 100:
+    #             for entry_point in range(0, block_nr, block_nr // 4)[1:-1]:
+    #                 entry_point_hash = substrate.get_block_hash(entry_point)
+    #                 accumulate_block_recursive.delay(entry_point_hash)
 
     block = None
     max_sequenced_block_id = False

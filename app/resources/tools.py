@@ -20,6 +20,7 @@
 
 import falcon
 
+from app import settings
 from app.processors.converters import PolkascanHarvesterService
 from app.resources.base import BaseResource
 
@@ -37,7 +38,11 @@ class ExtractMetadataResource(BaseResource):
     def on_get(self, req, resp):
 
         if 'block_hash' in req.params:
-            substrate = SubstrateInterface(SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
+            substrate = SubstrateInterface(
+                url=settings.SUBSTRATE_RPC_URL,
+                runtime_config=RuntimeConfiguration(),
+                type_registry_preset=settings.TYPE_REGISTRY
+            )
             metadata = substrate.get_block_metadata(req.params.get('block_hash'))
 
             resp.status = falcon.HTTP_200
@@ -56,7 +61,9 @@ class ExtractExtrinsicsResource(BaseResource):
 
     def on_get(self, req, resp):
 
-        substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
+        substrate = SubstrateInterface(
+            url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration(), type_registry_preset=settings.TYPE_REGISTRY
+        )
 
         # Get extrinsics
         json_block = substrate.get_chain_block(req.params.get('block_hash'))
@@ -85,7 +92,9 @@ class ExtractEventsResource(BaseResource):
 
     def on_get(self, req, resp):
 
-        substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
+        substrate = SubstrateInterface(
+            url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration(), type_registry_preset=settings.TYPE_REGISTRY
+        )
 
         # Get Parent hash
         json_block = substrate.get_block_header(req.params.get('block_hash'))
@@ -109,7 +118,9 @@ class StorageValidatorResource(BaseResource):
 
     def on_get(self, req, resp):
 
-        substrate = SubstrateInterface(url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
+        substrate = SubstrateInterface(
+            url=SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration(), type_registry_preset=settings.TYPE_REGISTRY
+        )
 
         resp.status = falcon.HTTP_200
 

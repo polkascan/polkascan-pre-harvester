@@ -552,7 +552,7 @@ class PolkascanHarvesterService(BaseService):
                     event_idx=event_idx,
                     phase=event.value['phase'],
                     extrinsic_idx=event.value['extrinsic_idx'],
-                    type=event.value['type'],
+                    type=event.value.get('event_index') or event.value.get('type'),
                     spec_version_id=parent_spec_version,
                     module_id=event.value['module_id'],
                     event_id=event.value['event_id'],
@@ -797,7 +797,11 @@ class PolkascanHarvesterService(BaseService):
     def integrity_checks(self):
 
         # 1. Check finalized head
-        substrate = SubstrateInterface(url=settings.SUBSTRATE_RPC_URL, runtime_config=RuntimeConfiguration())
+        substrate = SubstrateInterface(
+            url=settings.SUBSTRATE_RPC_URL,
+            runtime_config=RuntimeConfiguration(),
+            type_registry_preset=settings.TYPE_REGISTRY
+        )
 
         if settings.FINALIZATION_BY_BLOCK_CONFIRMATIONS > 0:
             finalized_block_hash = substrate.get_chain_head()
