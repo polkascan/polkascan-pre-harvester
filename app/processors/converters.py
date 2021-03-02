@@ -85,7 +85,8 @@ class PolkascanHarvesterService(BaseService):
 
         # Set block time of parent block
         child_block = Block.query(self.db_session).filter_by(parent_hash=block.hash).first()
-        block.set_datetime(child_block.datetime)
+        if child_block.datetime:
+            block.set_datetime(child_block.datetime)
 
         # Retrieve genesis accounts
         if settings.get_versioned_setting('SUBSTRATE_STORAGE_INDICES', block.spec_version_id) == 'Accounts':
