@@ -896,7 +896,7 @@ class TreasuryAwardedEventProcessor(EventProcessor):
 
 class CodeStoredEventProcessor(EventProcessor):
 
-    module_id = 'contract'
+    module_id = 'contracts'
     event_id = 'CodeStored'
 
     def accumulation_hook(self, db_session):
