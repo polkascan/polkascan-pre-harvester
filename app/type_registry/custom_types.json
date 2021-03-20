@@ -455,7 +455,6 @@
         ]
       ]
     },
-    "Keys": "SessionKeys2",
     "LiquiditySourceType": {
       "type": "enum",
       "value_list": [
