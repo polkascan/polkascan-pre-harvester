@@ -1031,7 +1031,7 @@ class PolkascanHarvesterService(BaseService):
         )
 
         if storage_method:
-            if storage_method.get("type_hasher_key1") == "Blake2_128Concat":
+            if storage_method.type['MapType']['hasher'] == "Blake2_128Concat":
 
                 # get balances storage prefix
                 storage_key_prefix = self.substrate.generate_storage_hash(
