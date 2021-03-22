@@ -60,6 +60,13 @@
         "Migrating"
       ]
     },
+    "ChangePeersContract": {
+      "type": "enum",
+      "value_list": [
+        "XOR",
+        "VAL"
+      ]
+    },
     "ChargeFeeInfo": {
       "type": "struct",
       "type_mapping": [
@@ -163,6 +170,43 @@
         "Disabled",
         "ForbidSelected",
         "AllowSelected"
+      ]
+    },
+    "IncomingChangePeersCompat": {
+      "type": "struct",
+      "type_mapping": [
+        [
+          "peer_account_id",
+          "AccountId"
+        ],
+        [
+          "peer_address",
+          "EthereumAddress"
+        ],
+        [
+          "added",
+          "bool"
+        ],
+        [
+          "contract",
+          "ChangePeersContract"
+        ],
+        [
+          "tx_hash",
+          "H256"
+        ],
+        [
+          "at_height",
+          "u64"
+        ],
+        [
+          "timepoint",
+          "Timepoint"
+        ],
+        [
+          "network_id",
+          "BridgeNetworkId"
+        ]
       ]
     },
     "Fixed": "FixedU128",
@@ -383,10 +427,6 @@
           "IncomingChangePeers"
         ],
         [
-          "ClaimPswap",
-          "IncomingClaimPswap"
-        ],
-        [
           "CancelOutgoingRequest",
           "IncomingCancelOutgoingRequest"
         ],
@@ -407,7 +447,6 @@
         "AddAsset",
         "AddPeer",
         "RemovePeer",
-        "ClaimPswap",
         "CancelOutgoingRequest",
         "MarkAsDone",
         "PrepareForMigration",
@@ -458,7 +497,6 @@
     "LiquiditySourceType": {
       "type": "enum",
       "value_list": [
-        "BondingCurvePool",
         "XYKPool",
         "BondingCurvePool",
         "MulticollateralBondingCurvePool",
@@ -515,6 +553,10 @@
         [
           "network_id",
           "BridgeNetworkId"
+        ],
+        [
+          "timepoint",
+          "Timepoint"
         ]
       ]
     },
@@ -577,6 +619,10 @@
         [
           "network_id",
           "BridgeNetworkId"
+        ],
+        [
+          "timepoint",
+          "Timepoint"
         ]
       ]
     },
@@ -631,6 +677,10 @@
         [
           "network_id",
           "BridgeNetworkId"
+        ],
+        [
+          "timepoint",
+          "Timepoint"
         ]
       ]
     },
@@ -689,6 +739,10 @@
         [
           "network_id",
           "BridgeNetworkId"
+        ],
+        [
+          "timepoint",
+          "Timepoint"
         ]
       ]
     },
@@ -735,6 +789,10 @@
         [
           "network_id",
           "BridgeNetworkId"
+        ],
+        [
+          "timepoint",
+          "Timepoint"
         ]
       ]
     },
@@ -760,6 +818,35 @@
       ]
     },
     "OutgoingRemovePeer": {
+      "type": "struct",
+      "type_mapping": [
+        [
+          "author",
+          "GenericAddress"
+        ],
+        [
+          "peer_account_id",
+          "GenericAddress"
+        ],
+        [
+          "peer_address",
+          "EthereumAddress"
+        ],
+        [
+          "nonce",
+          "Index"
+        ],
+        [
+          "network_id",
+          "BridgeNetworkId"
+        ],
+        [
+          "timepoint",
+          "Timepoint"
+        ]
+      ]
+    },
+    "OutgoingRemovePeerCompat": {
       "type": "struct",
       "type_mapping": [
         [
@@ -897,6 +984,10 @@
         [
           "network_id",
           "BridgeNetworkId"
+        ],
+        [
+          "timepoint",
+          "Timepoint"
         ]
       ]
     },
