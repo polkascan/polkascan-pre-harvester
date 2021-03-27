@@ -761,4 +761,13 @@ class SearchIndex(BaseModel):
     index_type_id = sa.Column(sa.Integer(), nullable=False, index=True)
     sorting_value = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True, index=True)
 
+class DataAsset(BaseModel):
+    __tablename__ = 'data_asset'
+
+    id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
+    asset_id = sa.Column(sa.String(128), nullable=True, index=True)
+    symbol = sa.Column(sa.String(10), nullable=True, index=True)
+    precision = sa.Column(sa.Integer(), nullable=True, index=True)
+    is_mintable = sa.Column(sa.Boolean(), nullable=True, index=True)
+    name = sa.Column(sa.String(128), nullable=False, index=True)
 

@@ -43,6 +43,10 @@
           "AssetSymbolStr"
         ],
         [
+          "name",
+          "AssetName"
+        ],
+        [
           "precision",
           "u8"
         ],
@@ -103,6 +107,7 @@
       ]
     },
     "AssetSymbol": "Vec<u8>",
+    "AssetName": "Vec<u8>",
     "Balance": "u128",
     "BalanceInfo": {
       "type": "struct",

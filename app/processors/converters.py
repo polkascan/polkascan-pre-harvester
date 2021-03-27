@@ -41,7 +41,7 @@ from substrateinterface.utils.hasher import xxh128
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
     AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog, RuntimeErrorMessage, Account, \
-    AccountInfoSnapshot, SearchIndex
+    AccountInfoSnapshot, SearchIndex, DataAsset
 
 
 if settings.DEBUG:
@@ -211,6 +211,18 @@ class PolkascanHarvesterService(BaseService):
             initial_session_event.add_session(db_session=self.db_session, session_id=0)
         else:
             initial_session_event.add_session_old(db_session=self.db_session, session_id=0)
+
+        rpc_assets_result = self.substrate.rpc_request('assets_listAssetInfos', []).get('result')
+        for asset in rpc_assets_result:
+            data_asset = DataAsset(
+                asset_id = asset['asset_id'],
+                symbol = asset['symbol'],
+                precision = asset['precision'],
+                name = asset['name'],
+                is_mintable = True if asset['is_mintable'] == 'true' else False
+            )
+            data_asset.save(self.db_session)
+
 
     def process_metadata(self, spec_version, block_hash):
 
