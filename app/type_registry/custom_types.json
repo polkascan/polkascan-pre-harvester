@@ -111,6 +111,8 @@
           ]
         },
         "CurrencyIdOf": "AssetId",
+        "T::AccountId": "AccountId",
+        "CurrencyIdOf<T>": "AssetId",
         "CustomInfo": {
           "type": "struct",
           "type_mapping": [
@@ -422,7 +424,11 @@
             "CancelOutgoingRequest",
             "MarkAsDone",
             "PrepareForMigration",
-            "Migrate"
+            "Migrate",
+            "AddPeerCompat",
+            "RemovePeerCompat",
+            "TransferXOR"
+
           ]
         },
         "IncomingTransfer": {
@@ -1106,6 +1112,11 @@
             ]
           ]
         },
+        "BTreeSet<SignatureParams>": "Vec<SignatureParams>",
+        "BTreeSet<H256>": "Vec<H256>",
+        "BTreeSet<AssetId>": "Vec<AssetId>",
+        "BTreeSet<AccountId>": "Vec<AccountId>",
+        "ecdsa::Public": "[u8; 33]",
         "SmoothPriceState": "Null",
         "SwapAction": "Null",
         "SwapAmount": {
@@ -1237,7 +1248,33 @@
             ]
           ]
         },
-        "ValidationFunction": "Null"
+        "ValidationFunction": "Null",
+        "DispatchResultWithPostInfo": {
+          "type": "enum",
+          "type_mapping": [
+            [
+              "Ok",
+              "PostDispatchInfo"
+            ],
+            [
+              "Error",
+              "DispatchErrorWithPostInfoTPostDispatchInfo"
+            ]
+          ]
+        },
+        "PostDispatchInfo": {
+          "type": "struct",
+          "type_mapping": [
+            [
+              "actualWeight",
+              "Option<Weight>"
+            ],
+            [
+              "paysFee",
+              "Pays"
+            ]
+          ]
+        }
       }
     }
   ]
