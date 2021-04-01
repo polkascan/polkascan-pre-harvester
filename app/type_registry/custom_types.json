@@ -12,10 +12,7 @@
         "FixedU128": "u128",
         "U256": "u256",
         "SessionKeys2": "(AccountIdAddress, AccountIdAddress)",
-        "Address": "AccountIdAddress",
         "Amount": "i128",
-        "AssetId32": "[u8; 32]",
-        "AssetId": "AssetId32",
         "AmountOf": "Amount",
         "AssetIdOf": "AssetId",
         "AssetInfo": {
