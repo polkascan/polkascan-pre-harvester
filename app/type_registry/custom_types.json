@@ -1113,6 +1113,7 @@
         "BTreeSet<H256>": "Vec<H256>",
         "BTreeSet<AssetId>": "Vec<AssetId>",
         "BTreeSet<AccountId>": "Vec<AccountId>",
+        "BTreeSet<LiquiditySourceType>": "Vec<LiquiditySourceType>",
         "ecdsa::Public": "[u8; 33]",
         "SmoothPriceState": "Null",
         "SwapAction": "Null",
@@ -1269,6 +1270,19 @@
             [
               "paysFee",
               "Pays"
+            ]
+          ]
+        },
+        "DispatchErrorWithPostInfoTPostDispatchInfo": {
+          "type": "struct",
+          "type_mapping": [
+            [
+              "post_info",
+              "PostDispatchInfo"
+            ],
+            [
+              "error",
+              "DispatchError"
             ]
           ]
         }
