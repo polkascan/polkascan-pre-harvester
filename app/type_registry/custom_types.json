@@ -14,6 +14,8 @@
         "SessionKeys2": "(AccountIdAddress, AccountIdAddress)",
         "Amount": "i128",
         "AmountOf": "Amount",
+        "AssetId32": "[u8; 32]",
+        "AssetId": "AssetId32",
         "AssetIdOf": "AssetId",
         "AssetInfo": {
           "type": "struct",

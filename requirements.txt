@@ -10,7 +10,7 @@ chardet~=3.0.4
 dictalchemy==0.1.2.7
 falcon==1.4.1
 flower==0.9.5
-greenlet==0.4.15
+greenlet==0.4.17
 gunicorn==19.9.0
 idna==2.8
 jsonschema==2.6.0
