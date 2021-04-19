@@ -1384,11 +1384,8 @@ class AssetsAssetRegisteredEventProcessor(EventProcessor):
 
     def accumulation_hook(self, db_session):
         extrinsic = Extrinsic.query(db_session).filter_by(extrinsic_idx=self.event.extrinsic_idx, block_id=self.event.block_id).first()
-        if extrinsic.module_id == 'Utility' and extrinsic.call_id == 'batch':
-            #XYK pool creation (aka LP token)
-            #don't process it for now
-            pass
-        else:
+
+        if extrinsic.module_id == 'Assets' and extrinsic.call_id == 'register':
             data_asset = DataAsset(
                 asset_id=self.event.attributes[0]['value'],
                 symbol=extrinsic.params[0]['value'],
@@ -1397,3 +1394,7 @@ class AssetsAssetRegisteredEventProcessor(EventProcessor):
                 is_mintable=True if extrinsic.params[3]['value'] == 'true' else False
             )
             data_asset.save(db_session)
+        else:
+            #XYK pool creation (aka LP token) or Ethereum bridge
+            #don't process it for now
+            pass
