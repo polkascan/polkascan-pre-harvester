@@ -14,11 +14,11 @@
         "Sr25519Public": "[u8; 32]",
         "SessionKeys2": "(Sr25519Public, Sr25519Public)",
         "SessionKeys3": "(Sr25519Public, Sr25519Public, Sr25519Public)",
-        "Address": "AccountId",
+        "Address": "AccountIdAddress",
         "Amount": "i128",
         "AmountOf": "Amount",
-        "AssetId": "AssetId32",
         "AssetId32": "[u8; 32]",
+        "AssetId": "AssetId32",
         "AssetIdOf": "AssetId",
         "AssetInfo": {
           "type": "struct",
