@@ -11,7 +11,9 @@
         "String": "Text",
         "FixedU128": "u128",
         "U256": "u256",
-        "SessionKeys2": "(AccountId, AccountId)",
+        "Sr25519Public": "[u8; 32]",
+        "SessionKeys2": "(Sr25519Public, Sr25519Public)",
+        "SessionKeys3": "(Sr25519Public, Sr25519Public, Sr25519Public)",
         "Address": "AccountId",
         "Amount": "i128",
         "AmountOf": "Amount",
@@ -154,7 +156,19 @@
             ]
           ]
         },
-        "DispatchResultWithPostInfo": "Result<PostDispatchInfo, DispatchErrorWithPostInfoTPostDispatchInfo>",
+        "DispatchResultWithPostInfo": {
+          "type": "enum",
+          "type_mapping": [
+            [
+              "Ok",
+              "PostDispatchInfo"
+            ],
+            [
+              "Err",
+              "DispatchErrorWithPostInfoTPostDispatchInfo"
+            ]
+          ]
+        },
         "DistributionAccounts": "Null",
         "Duration": "Null",
         "EthPeersSync": {
@@ -1236,6 +1250,19 @@
             "ApprovalsReady",
             "Failed",
             "Done"
+          ]
+        },
+        "Result<IncomingRequest, DispatchError>": {
+          "type": "enum",
+          "type_mapping": [
+            [
+              "Ok",
+              "IncomingRequest"
+            ],
+            [
+              "Err",
+              "DispatchError"
+            ]
           ]
         },
         "Scope": {
