@@ -14,12 +14,39 @@
         "Sr25519Public": "[u8; 32]",
         "SessionKeys2": "(Sr25519Public, Sr25519Public)",
         "SessionKeys3": "(Sr25519Public, Sr25519Public, Sr25519Public)",
-        "Address": "AccountId",
+        "Address": "AccountIdAddress",
         "Amount": "i128",
         "AmountOf": "Amount",
-        "AssetId": "AssetId32",
         "AssetId32": "[u8; 32]",
+        "AssetId": "AssetId32",
         "AssetIdOf": "AssetId",
+        "MultiChainHeight": {
+          "type": "enum",
+          "type_mapping": [
+            [
+              "Thischain",
+              "BlockNumber"
+            ],
+            [
+              "Sidechain",
+              "u64"
+            ]
+          ]
+        },
+        "Timepoint": {
+          "type": "struct",
+          "type_mapping": [
+            [
+              "height",
+              "MultiChainHeight"
+            ],
+            [
+              "index",
+              "u32"
+            ]
+          ]
+        },
+        "BridgeTimepoint": "Timepoint",
         "AssetInfo": {
           "type": "struct",
           "type_mapping": [
@@ -71,6 +98,7 @@
         "BalancePrecision": "u8",
         "BasisPoints": "u16",
         "BridgeNetworkId": "u32",
+        "NetworkId": "BridgeNetworkId",
         "BridgeStatus": {
           "type": "enum",
           "value_list": [
