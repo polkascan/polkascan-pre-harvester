@@ -214,14 +214,19 @@ class PolkascanHarvesterService(BaseService):
 
         rpc_assets_result = self.substrate.rpc_request('assets_listAssetInfos', []).get('result')
         for asset in rpc_assets_result:
-            data_asset = DataAsset(
-                asset_id = asset['asset_id'],
-                symbol = asset['symbol'],
-                precision = asset['precision'],
-                name = asset['name'],
-                is_mintable = True if asset['is_mintable'] == 'true' else False
-            )
-            data_asset.save(self.db_session)
+            existing_asset = DataAsset.query(self.db_session).filter(DataAsset.asset_id == asset['asset_id']).first()
+            if existing_asset:
+                # asset already added
+                continue
+            else:
+                data_asset = DataAsset(
+                    asset_id=asset['asset_id'],
+                    symbol=asset['symbol'],
+                    precision=asset['precision'],
+                    name=asset['name'],
+                    is_mintable=True if asset['is_mintable'] == 'true' else False
+                )
+                data_asset.save(self.db_session)
 
 
     def process_metadata(self, spec_version, block_hash):
