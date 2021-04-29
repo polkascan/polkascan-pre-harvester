@@ -586,6 +586,10 @@
             [
               "network_id",
               "BridgeNetworkId"
+            ],
+            [
+              "should_take_fee",
+              "bool"
             ]
           ]
         },
