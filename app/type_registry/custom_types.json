@@ -1463,7 +1463,31 @@
             ]
           ]
         },
-        "ValidationFunction": "Null"
+        "ValidationFunction": "Null",
+        "RewardReason": {
+          "type": "enum",
+          "value_list": [
+            "Unspecified",
+            "BuyOnBondingCurve"
+          ]
+        },
+        "RewardInfo": {
+          "type": "struct",
+          "type_mapping": [
+            [
+              "limit",
+              "Balance"
+            ],
+            [
+              "total_available",
+              "Balance"
+            ],
+            [
+              "rewards",
+              "BTreeMap<RewardReason,Balance>"
+            ]
+          ]
+        }
       }
     }
   ]
