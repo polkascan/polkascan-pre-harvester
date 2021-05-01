@@ -29,7 +29,7 @@ from app.processors.base import ExtrinsicProcessor
 
 class TimestampExtrinsicProcessor(ExtrinsicProcessor):
 
-    module_id = 'timestamp'
+    module_id = 'Timestamp'
     call_id = 'set'
 
     def accumulation_hook(self, db_session):
