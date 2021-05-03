@@ -761,7 +761,8 @@ class SearchIndex(BaseModel):
     index_type_id = sa.Column(sa.Integer(), nullable=False, index=True)
     sorting_value = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True, index=True)
 
-class DataAsset(BaseModel):
+
+class Asset(BaseModel):
     __tablename__ = 'data_asset'
 
     id = sa.Column(sa.Integer(), primary_key=True, autoincrement=True)
