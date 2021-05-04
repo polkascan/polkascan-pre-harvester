@@ -24,7 +24,7 @@ from scalecodec.base import RuntimeConfiguration
 from app import settings
 from app.models.data import Contract, Session, AccountAudit, \
     AccountIndexAudit, SessionTotal, SessionValidator, RuntimeStorage, \
-    SessionNominator, IdentityAudit, IdentityJudgementAudit, Account, DataAsset, Extrinsic
+    SessionNominator, IdentityAudit, IdentityJudgementAudit, Account, Asset, Extrinsic
 from app.processors.base import EventProcessor
 from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCOUNT_INDEX_AUDIT_TYPE_NEW, \
     ACCOUNT_INDEX_AUDIT_TYPE_REAPED, LEGACY_SESSION_VALIDATOR_LOOKUP, SEARCH_INDEX_SLASHED_ACCOUNT, \
@@ -1386,7 +1386,7 @@ class AssetsAssetRegisteredEventProcessor(EventProcessor):
         extrinsic = Extrinsic.query(db_session).filter_by(extrinsic_idx=self.event.extrinsic_idx, block_id=self.event.block_id).first()
 
         if extrinsic.module_id == 'Assets' and extrinsic.call_id == 'register':
-            data_asset = DataAsset(
+            data_asset = Asset(
                 asset_id=self.event.attributes[0]['value'],
                 symbol=extrinsic.params[0]['value'],
                 precision=18, #TODO may be changed

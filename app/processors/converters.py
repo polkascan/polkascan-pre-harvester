@@ -41,7 +41,7 @@ from substrateinterface.utils.hasher import xxh128
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
     AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog, RuntimeErrorMessage, Account, \
-    AccountInfoSnapshot, SearchIndex, DataAsset
+    AccountInfoSnapshot, SearchIndex, Asset
 
 
 if settings.DEBUG:
@@ -214,12 +214,12 @@ class PolkascanHarvesterService(BaseService):
 
         rpc_assets_result = self.substrate.rpc_request('assets_listAssetInfos', []).get('result')
         for asset in rpc_assets_result:
-            existing_asset = DataAsset.query(self.db_session).filter(DataAsset.asset_id == asset['asset_id']).first()
+            existing_asset = Asset.query(self.db_session).filter(DataAsset.asset_id == asset['asset_id']).first()
             if existing_asset:
                 # asset already added
                 continue
             else:
-                data_asset = DataAsset(
+                data_asset = Asset(
                     asset_id=asset['asset_id'],
                     symbol=asset['symbol'],
                     precision=asset['precision'],
