@@ -938,14 +938,14 @@ class SlashEventProcessor(EventProcessor):
 
 
 class BalancesTransferProcessor(EventProcessor):
-    module_id = 'balances'
+    module_id = 'assets'
     event_id = 'Transfer'
 
     def process_search_index(self, db_session):
         search_index = self.add_search_index(
             index_type_id=SEARCH_INDEX_BALANCETRANSFER,
             account_id=self.event.attributes[0]['value'].replace('0x', ''),
-            sorting_value=self.event.attributes[2]['value']
+            sorting_value=self.event.attributes[3]['value']
         )
 
         search_index.save(db_session)
@@ -953,7 +953,7 @@ class BalancesTransferProcessor(EventProcessor):
         search_index = self.add_search_index(
             index_type_id=SEARCH_INDEX_BALANCETRANSFER,
             account_id=self.event.attributes[1]['value'].replace('0x', ''),
-            sorting_value=self.event.attributes[2]['value']
+            sorting_value=self.event.attributes[3]['value']
         )
 
         search_index.save(db_session)
