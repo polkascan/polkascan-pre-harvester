@@ -214,7 +214,7 @@ class PolkascanHarvesterService(BaseService):
 
         rpc_assets_result = self.substrate.rpc_request('assets_listAssetInfos', []).get('result')
         for asset in rpc_assets_result:
-            existing_asset = Asset.query(self.db_session).filter(DataAsset.asset_id == asset['asset_id']).first()
+            existing_asset = Asset.query(self.db_session).filter(Asset.asset_id == asset['asset_id']).first()
             if existing_asset:
                 # asset already added
                 continue
