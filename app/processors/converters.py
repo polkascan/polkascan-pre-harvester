@@ -705,8 +705,8 @@ class PolkascanHarvesterService(BaseService):
                 extrinsic_processor.accumulation_hook(self.db_session)
                 extrinsic_processor.process_search_index(self.db_session)
 
-        if model.module_id == 'EthBridge' and model.call_id == 'transfer_to_sidechain':
-            block.count_bridge_outcome += 1
+            if model.module_id == 'EthBridge' and model.call_id == 'transfer_to_sidechain':
+                block.count_bridge_outcome += 1
 
         # Process event processors
         for event in events:
