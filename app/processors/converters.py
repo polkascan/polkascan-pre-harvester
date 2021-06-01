@@ -539,7 +539,9 @@ class PolkascanHarvesterService(BaseService):
             range100000=math.floor(block_id / 100000),
             range1000000=math.floor(block_id / 1000000),
             spec_version_id=self.substrate.runtime_version,
-            logs=digest_logs
+            logs=digest_logs,
+            count_bridge_income=0,
+            count_bridge_outcome=0
         )
 
         # Set temp helper variables
@@ -602,6 +604,9 @@ class PolkascanHarvesterService(BaseService):
                 else:
 
                     block.count_events_module += 1
+
+                if model.module_id == 'ethbridge' and model.event_id == 'IncomingRequestFinalized':
+                    block.count_bridge_income += 1
 
                 model.save(self.db_session)
 
@@ -699,6 +704,9 @@ class PolkascanHarvesterService(BaseService):
                 extrinsic_processor = processor_class(block, model, substrate=self.substrate)
                 extrinsic_processor.accumulation_hook(self.db_session)
                 extrinsic_processor.process_search_index(self.db_session)
+
+        if model.module_id == 'EthBridge' and model.call_id == 'transfer_to_sidechain':
+            block.count_bridge_outcome += 1
 
         # Process event processors
         for event in events:

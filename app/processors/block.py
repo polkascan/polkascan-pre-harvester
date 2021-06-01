@@ -131,6 +131,8 @@ class BlockTotalProcessor(BlockProcessor):
         self.sequenced_block.total_accounts_reaped = int(parent_sequenced_block_data.get('total_accounts_reaped', 0)) + self.block.count_accounts_reaped
         self.sequenced_block.total_sessions_new = int(parent_sequenced_block_data.get('total_sessions_new', 0)) + self.block.count_sessions_new
         self.sequenced_block.total_contracts_new = int(parent_sequenced_block_data.get('total_contracts_new', 0)) + self.block.count_contracts_new
+        self.sequenced_block.total_bridge_income = int(parent_sequenced_block_data.get('total_bridge_income', 0)) + self.block.total_bridge_income
+        self.sequenced_block.total_bridge_outcome = int(parent_sequenced_block_data.get('total_bridge_outcome', 0)) + self.block.total_bridge_outcome
 
         self.sequenced_block.session_id = int(parent_sequenced_block_data.get('session_id', 0))
 
