@@ -24,6 +24,8 @@ def upgrade():
     op.add_column('data_block_total', sa.Column('total_bridge_outcome', sa.Numeric(precision=65, scale=0)))
     op.add_column('data_block', sa.Column('count_bridge_income', sa.Integer(), nullable=False))
     op.add_column('data_block', sa.Column('count_bridge_outcome', sa.Integer(), nullable=False))
+    op.add_column('data_reorg_block', sa.Column('count_bridge_income', sa.Integer(), nullable=False))
+    op.add_column('data_reorg_block', sa.Column('count_bridge_outcome', sa.Integer(), nullable=False))
     bind = op.get_bind()
     session = Session(bind=bind)
     sql_outcome = "update data_block_total set total_bridge_outcome =" \
@@ -48,4 +50,6 @@ def downgrade():
     op.drop_column('data_block_total', 'total_bridge_outcome')
     op.drop_column('data_block', 'count_bridge_income')
     op.drop_column('data_block', 'count_bridge_outcome')
+    op.drop_column('data_reorg_block', 'count_bridge_income')
+    op.drop_column('data_reorg_block', 'count_bridge_outcome')
 

@@ -623,6 +623,8 @@ class ReorgBlock(BaseModel):
     slot_number = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True)
     spec_version_id = sa.Column(sa.String(64), nullable=False)
     debug_info = sa.Column(sa.JSON(), default=None, server_default=None)
+    count_bridge_income = sa.Column(sa.Integer(), nullable=False)
+    count_bridge_outcome = sa.Column(sa.Integer(), nullable=False)
 
 
 class ReorgEvent(BaseModel):
