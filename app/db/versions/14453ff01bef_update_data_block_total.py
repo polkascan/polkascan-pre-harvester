@@ -26,23 +26,21 @@ def upgrade():
     op.add_column('data_block', sa.Column('count_bridge_outcome', sa.Integer(), nullable=False))
     op.add_column('data_reorg_block', sa.Column('count_bridge_income', sa.Integer(), nullable=False))
     op.add_column('data_reorg_block', sa.Column('count_bridge_outcome', sa.Integer(), nullable=False))
-    bind = op.get_bind()
-    session = Session(bind=bind)
-    sql_outcome = "update data_block_total set total_bridge_outcome =" \
-                    "(select count(*)" \
-                    "from data_extrinsic" \
-                    "where data_extrinsic.module_id = 'EthBridge'" \
-                        "and data_extrinsic.call_id = 'transfer_to_sidechain')" \
+    sql_outcome = "update data_block_total set total_bridge_outcome = " \
+                    "(select count(*) " \
+                    "from data_extrinsic " \
+                    "where data_extrinsic.module_id = 'EthBridge' " \
+                        "and data_extrinsic.call_id = 'transfer_to_sidechain') " \
                   "order by id desc limit 1"
-    session.execute(sql_outcome)
+    op.execute(sql_outcome)
 
-    sql_income = "update data_block_total set total_bridge_income =" \
-                 "(select count(*)" \
-                    "from data_event" \
-                    "where data_event.module_id = 'ethbridge'" \
-                        "and data_event.event_id = 'IncomingRequestFinalized')" \
-                "order by id desc limit 1"
-    session.execute(sql_income)
+    sql_income = "update data_block_total set total_bridge_income = " \
+                 "(select count(*) " \
+                    "from data_event " \
+                    "where data_event.module_id = 'ethbridge' " \
+                        "and data_event.event_id = 'IncomingRequestFinalized') " \
+                "order by id desc limit 1 "
+    op.execute(sql_income)
 
 
 def downgrade():
