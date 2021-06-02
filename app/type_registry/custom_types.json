@@ -1471,6 +1471,7 @@
             "BuyOnBondingCurve"
           ]
         },
+        "BTreeMap<RewardReason,Balance>": "Vec<(RewardReason,Balance)>",
         "RewardInfo": {
           "type": "struct",
           "type_mapping": [
@@ -1485,6 +1486,20 @@
             [
               "rewards",
               "BTreeMap<RewardReason,Balance>"
+            ]
+          ]
+        },
+        "StorageVersion": "Null",
+        "MarketMakerInfo": {
+          "type": "struct",
+          "type_mapping": [
+            [
+              "count",
+              "u32"
+            ],
+            [
+              "volume",
+              "Balance"
             ]
           ]
         }
