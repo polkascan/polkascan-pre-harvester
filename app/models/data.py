@@ -75,6 +75,8 @@ class Block(BaseModel):
     slot_number = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True)
     spec_version_id = sa.Column(sa.String(64), nullable=False)
     debug_info = sa.Column(sa.JSON(), default=None, server_default=None)
+    count_bridge_income = sa.Column(sa.Integer(), nullable=False)
+    count_bridge_outcome = sa.Column(sa.Integer(), nullable=False)
 
     def set_datetime(self, datetime):
         self.datetime = datetime
@@ -143,6 +145,8 @@ class BlockTotal(BaseModel):
     total_accounts_reaped = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
     total_sessions_new = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
     total_contracts_new = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_bridge_income = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    total_bridge_outcome = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
 
 
 class Event(BaseModel):
@@ -619,6 +623,8 @@ class ReorgBlock(BaseModel):
     slot_number = sa.Column(sa.Numeric(precision=65, scale=0), nullable=True)
     spec_version_id = sa.Column(sa.String(64), nullable=False)
     debug_info = sa.Column(sa.JSON(), default=None, server_default=None)
+    count_bridge_income = sa.Column(sa.Integer(), nullable=False)
+    count_bridge_outcome = sa.Column(sa.Integer(), nullable=False)
 
 
 class ReorgEvent(BaseModel):
