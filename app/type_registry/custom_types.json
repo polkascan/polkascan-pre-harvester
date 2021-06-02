@@ -1502,6 +1502,30 @@
               "Balance"
             ]
           ]
+        },
+        "EthBridgeStorageVersion": {
+          "type":  "enum",
+          "value_list": [
+            "V1",
+            "V2RemovePendingTransfers"
+          ]
+        }
+      }
+    },
+    {
+      "runtime_range": [
+        4,
+        null
+      ],
+      "types": {
+        "RewardReason": {
+          "type": "enum",
+          "value_list": [
+            "Unspecified",
+            "BuyOnBondingCurve",
+            "LiquidityProvisionFarming",
+            "MarketMakerVolume"
+          ]
         }
       }
     }
