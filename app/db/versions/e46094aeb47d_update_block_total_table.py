@@ -17,8 +17,8 @@ depends_on = None
 
 
 def upgrade():
-    op.alter_column(table_name='data_block_total', column_name='total_bridge_income', existing_type=sa.Numeric(precision=65, scale=0), nullable=False)
-    op.alter_column(table_name='data_block_total', column_name='total_bridge_outcome', existing_type=sa.Numeric(precision=65, scale=0), nullable=False)
+    op.alter_column(table_name='data_block_total', column_name='total_bridge_income', existing_type=sa.Numeric(precision=65, scale=0), nullable=False, server_default='0')
+    op.alter_column(table_name='data_block_total', column_name='total_bridge_outcome', existing_type=sa.Numeric(precision=65, scale=0), nullable=False, server_default='0')
 
 def downgrade():
     pass
