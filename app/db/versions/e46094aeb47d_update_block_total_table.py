@@ -17,6 +17,8 @@ depends_on = None
 
 
 def upgrade():
+    op.execute("update data_block_total set total_bridge_income=0 where total_bridge_income is null")
+    op.execute("update data_block_total set total_bridge_outcome=0 where total_bridge_outcome is null")
     op.alter_column(table_name='data_block_total', column_name='total_bridge_income', existing_type=sa.Numeric(precision=65, scale=0), nullable=False, server_default='0')
     op.alter_column(table_name='data_block_total', column_name='total_bridge_outcome', existing_type=sa.Numeric(precision=65, scale=0), nullable=False, server_default='0')
 
