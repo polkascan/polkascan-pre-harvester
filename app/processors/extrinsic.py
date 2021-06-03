@@ -34,11 +34,10 @@ class TimestampExtrinsicProcessor(ExtrinsicProcessor):
 
     def accumulation_hook(self, db_session):
 
-        if self.extrinsic.success:
-            # Store block date time related fields
-            for param in self.extrinsic.params:
-                if param.get('name') == 'now':
-                    self.block.set_datetime(dateutil.parser.parse(param.get('value')).replace(tzinfo=pytz.UTC))
+        # Store block date time related fields
+        for param in self.extrinsic.params:
+            if param.get('name') == 'now':
+                self.block.set_datetime(dateutil.parser.parse(param.get('value')).replace(tzinfo=pytz.UTC))
 
 
 class DemocracyVoteExtrinsicProcessor(ExtrinsicProcessor):
