@@ -59,29 +59,11 @@ class LogBlockProcessor(BlockProcessor):
             if log.type == 'PreRuntime':
                 if log.data['value']['engine'] == 'BABE':
                     # Determine block producer
-                    babe_predigest_cls = RuntimeConfiguration().get_decoder_class('RawBabePreDigest')
-
-                    babe_predigest = babe_predigest_cls(
-                        ScaleBytes(bytearray.fromhex(log.data['value']['data'].replace('0x', '')))
-                    ).decode()
-
-                    if len(list(babe_predigest.values())) > 0:
-
-                        babe_predigest_value = list(babe_predigest.values())[0]
-
-                        log.data['value']['data'] = babe_predigest_value
-                        self.block.authority_index = log.data['value']['data']['authorityIndex']
-                        self.block.slot_number = log.data['value']['data']['slotNumber']
+                    self.block.authority_index = log.data['value']['data']['authorityIndex']
+                    self.block.slot_number = log.data['value']['data']['slotNumber']
 
                 if log.data['value']['engine'] == 'aura':
-                    aura_predigest_cls = RuntimeConfiguration().get_decoder_class('RawAuraPreDigest')
-
-                    aura_predigest = aura_predigest_cls(
-                        ScaleBytes(bytearray.fromhex(log.data['value']['data'].replace('0x', '')))
-                    ).decode()
-
-                    log.data['value']['data'] = aura_predigest
-                    self.block.slot_number = aura_predigest['slotNumber']
+                    self.block.slot_number = log.data['value']['data']['slotNumber']
 
             log.save(db_session)
 

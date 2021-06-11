@@ -215,7 +215,6 @@ class PolkascanHarvesterService(BaseService):
     def process_metadata(self, spec_version, block_hash):
 
         # Check if metadata already stored
-
         runtime = Runtime.query(self.db_session).get(spec_version)
 
         if runtime:
@@ -383,8 +382,7 @@ class PolkascanHarvesterService(BaseService):
                                 type_key2=type_key2,
                                 type_value=type_value,
                                 type_is_linked=type_is_linked,
-                                type_key2hasher=type_key2hasher,
-                                documentation='\n'.join(storage.docs)
+                                type_key2hasher=type_key2hasher
                             )
                             runtime_storage.save(self.db_session)
 
@@ -415,8 +413,7 @@ class PolkascanHarvesterService(BaseService):
                                 index=idx,
                                 name=constant.name,
                                 type=constant.type,
-                                value=value,
-                                documentation='\n'.join(constant.docs)
+                                value=value
                             )
                             runtime_constant.save(self.db_session)
 
@@ -427,8 +424,7 @@ class PolkascanHarvesterService(BaseService):
                                 module_id=module_id,
                                 module_index=module_index,
                                 index=idx,
-                                name=error.name,
-                                documentation='\n'.join(error.docs)
+                                name=error.name
                             )
                             runtime_error.save(self.db_session)
 
