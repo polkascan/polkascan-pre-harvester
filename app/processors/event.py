@@ -39,7 +39,7 @@ from substrateinterface.exceptions import StorageFunctionNotFound
 
 class NewSessionEventProcessor(EventProcessor):
 
-    module_id = 'session'
+    module_id = 'Session'
     event_id = 'NewSession'
 
     def add_session(self, db_session, session_id):
@@ -581,7 +581,7 @@ class NewSessionEventProcessor(EventProcessor):
 
 class NewAccountEventProcessor(EventProcessor):
 
-    module_id = 'balances'
+    module_id = 'Balances'
     event_id = 'NewAccount'
 
     def accumulation_hook(self, db_session):
@@ -620,7 +620,7 @@ class NewAccountEventProcessor(EventProcessor):
 
 class SystemNewAccountEventProcessor(EventProcessor):
 
-    module_id = 'system'
+    module_id = 'System'
     event_id = 'NewAccount'
 
     def accumulation_hook(self, db_session):
@@ -657,7 +657,7 @@ class SystemNewAccountEventProcessor(EventProcessor):
 
 
 class ReapedAccount(EventProcessor):
-    module_id = 'balances'
+    module_id = 'Balances'
     event_id = 'ReapedAccount'
 
     def accumulation_hook(self, db_session):
@@ -718,7 +718,7 @@ class ReapedAccount(EventProcessor):
 
 
 class KilledAccount(EventProcessor):
-    module_id = 'system'
+    module_id = 'System'
     event_id = 'KilledAccount'
 
     def accumulation_hook(self, db_session):
@@ -758,7 +758,7 @@ class KilledAccount(EventProcessor):
 
 class NewAccountIndexEventProcessor(EventProcessor):
 
-    module_id = 'indices'
+    module_id = 'Indices'
     event_id = 'NewAccountIndex'
 
     def accumulation_hook(self, db_session):
@@ -784,7 +784,7 @@ class NewAccountIndexEventProcessor(EventProcessor):
 
 class IndexAssignedEventProcessor(EventProcessor):
 
-    module_id = 'indices'
+    module_id = 'Indices'
     event_id = 'IndexAssigned'
 
     def accumulation_hook(self, db_session):
@@ -810,7 +810,7 @@ class IndexAssignedEventProcessor(EventProcessor):
 
 class IndexFreedEventProcessor(EventProcessor):
 
-    module_id = 'indices'
+    module_id = 'Indices'
     event_id = 'IndexFreed'
 
     def accumulation_hook(self, db_session):
@@ -835,7 +835,7 @@ class IndexFreedEventProcessor(EventProcessor):
 
 class ProposedEventProcessor(EventProcessor):
 
-    module_id = 'democracy'
+    module_id = 'Democracy'
     event_id = 'Proposed'
 
     def process_search_index(self, db_session):
@@ -851,7 +851,7 @@ class ProposedEventProcessor(EventProcessor):
 
 class TechCommProposedEventProcessor(EventProcessor):
 
-    module_id = 'technicalcommittee'
+    module_id = 'Technicalcommittee'
     event_id = 'Proposed'
 
     def process_search_index(self, db_session):
@@ -866,7 +866,7 @@ class TechCommProposedEventProcessor(EventProcessor):
 
 class TechCommVotedEventProcessor(EventProcessor):
 
-    module_id = 'technicalcommittee'
+    module_id = 'Technicalcommittee'
     event_id = 'Voted'
 
     def process_search_index(self, db_session):
@@ -881,7 +881,7 @@ class TechCommVotedEventProcessor(EventProcessor):
 
 class TreasuryAwardedEventProcessor(EventProcessor):
 
-    module_id = 'treasury'
+    module_id = 'Treasury'
     event_id = 'Awarded'
 
     def process_search_index(self, db_session):
@@ -896,7 +896,7 @@ class TreasuryAwardedEventProcessor(EventProcessor):
 
 class CodeStoredEventProcessor(EventProcessor):
 
-    module_id = 'contract'
+    module_id = 'Contract'
     event_id = 'CodeStored'
 
     def accumulation_hook(self, db_session):
@@ -923,7 +923,7 @@ class CodeStoredEventProcessor(EventProcessor):
 
 class SlashEventProcessor(EventProcessor):
 
-    module_id = 'staking'
+    module_id = 'Staking'
     event_id = 'Slash'
 
     def process_search_index(self, db_session):
@@ -938,7 +938,7 @@ class SlashEventProcessor(EventProcessor):
 
 
 class BalancesTransferProcessor(EventProcessor):
-    module_id = 'balances'
+    module_id = 'Balances'
     event_id = 'Transfer'
 
     def process_search_index(self, db_session):
@@ -960,7 +960,7 @@ class BalancesTransferProcessor(EventProcessor):
 
 
 class BalancesDeposit(EventProcessor):
-    module_id = 'balances'
+    module_id = 'Balances'
     event_id = 'Deposit'
 
     def process_search_index(self, db_session):

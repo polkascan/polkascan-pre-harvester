@@ -29,7 +29,7 @@ from app.processors.base import ExtrinsicProcessor
 
 class TimestampExtrinsicProcessor(ExtrinsicProcessor):
 
-    module_id = 'timestamp'
+    module_id = 'Timestamp'
     call_id = 'set'
 
     def accumulation_hook(self, db_session):
@@ -43,7 +43,7 @@ class TimestampExtrinsicProcessor(ExtrinsicProcessor):
 
 class DemocracyVoteExtrinsicProcessor(ExtrinsicProcessor):
 
-    module_id = 'democracy'
+    module_id = 'Democracy'
     call_id = 'vote'
 
     def process_search_index(self, db_session):
@@ -68,7 +68,7 @@ class DemocracyVoteExtrinsicProcessor(ExtrinsicProcessor):
 
 class DemocracyProxyVote(ExtrinsicProcessor):
 
-    module_id = 'democracy'
+    module_id = 'Democracy'
     call_id = 'proxy_vote'
 
     def process_search_index(self, db_session):
@@ -85,7 +85,7 @@ class DemocracyProxyVote(ExtrinsicProcessor):
 
 class DemocracySecond(ExtrinsicProcessor):
 
-    module_id = 'democracy'
+    module_id = 'Democracy'
     call_id = 'second'
 
     def process_search_index(self, db_session):
@@ -102,7 +102,7 @@ class DemocracySecond(ExtrinsicProcessor):
 
 class IndentitySetSubsExtrinsicProcessor(ExtrinsicProcessor):
 
-    module_id = 'identity'
+    module_id = 'Identity'
     call_id = 'set_subs'
 
     def process_search_index(self, db_session):
@@ -118,7 +118,7 @@ class IndentitySetSubsExtrinsicProcessor(ExtrinsicProcessor):
 
 class StakingBond(ExtrinsicProcessor):
 
-    module_id = 'staking'
+    module_id = 'Staking'
     call_id = 'bond'
 
     def process_search_index(self, db_session):
@@ -135,7 +135,7 @@ class StakingBond(ExtrinsicProcessor):
 
 class StakingBondExtra(ExtrinsicProcessor):
 
-    module_id = 'staking'
+    module_id = 'Staking'
     call_id = 'bond_extra'
 
     def process_search_index(self, db_session):
@@ -152,7 +152,7 @@ class StakingBondExtra(ExtrinsicProcessor):
 
 class StakingUnbond(ExtrinsicProcessor):
 
-    module_id = 'staking'
+    module_id = 'Staking'
     call_id = 'unbond'
 
     def process_search_index(self, db_session):
@@ -169,7 +169,7 @@ class StakingUnbond(ExtrinsicProcessor):
 
 class StakingWithdrawUnbonded(ExtrinsicProcessor):
 
-    module_id = 'staking'
+    module_id = 'Staking'
     call_id = 'withdraw_unbonded'
 
     def process_search_index(self, db_session):
@@ -185,7 +185,7 @@ class StakingWithdrawUnbonded(ExtrinsicProcessor):
 
 class StakingNominate(ExtrinsicProcessor):
 
-    module_id = 'staking'
+    module_id = 'Staking'
     call_id = 'nominate'
 
     def process_search_index(self, db_session):
@@ -201,7 +201,7 @@ class StakingNominate(ExtrinsicProcessor):
 
 class StakingValidate(ExtrinsicProcessor):
 
-    module_id = 'staking'
+    module_id = 'Staking'
     call_id = 'validate'
 
     def process_search_index(self, db_session):
@@ -217,7 +217,7 @@ class StakingValidate(ExtrinsicProcessor):
 
 class StakingChill(ExtrinsicProcessor):
 
-    module_id = 'staking'
+    module_id = 'Staking'
     call_id = 'chill'
 
     def process_search_index(self, db_session):
@@ -233,7 +233,7 @@ class StakingChill(ExtrinsicProcessor):
 
 class StakingSetPayee(ExtrinsicProcessor):
 
-    module_id = 'staking'
+    module_id = 'Staking'
     call_id = 'set_payee'
 
     def process_search_index(self, db_session):
@@ -249,7 +249,7 @@ class StakingSetPayee(ExtrinsicProcessor):
 
 class ElectionsSubmitCandidacy(ExtrinsicProcessor):
 
-    module_id = 'electionsphragmen'
+    module_id = 'Electionsphragmen'
     call_id = 'submit_candidacy'
 
     def process_search_index(self, db_session):
@@ -265,7 +265,7 @@ class ElectionsSubmitCandidacy(ExtrinsicProcessor):
 
 class ElectionsVote(ExtrinsicProcessor):
 
-    module_id = 'electionsphragmen'
+    module_id = 'Electionsphragmen'
     call_id = 'vote'
 
     def process_search_index(self, db_session):
@@ -292,7 +292,7 @@ class ElectionsVote(ExtrinsicProcessor):
 
 class TreasuryProposeSpend(ExtrinsicProcessor):
 
-    module_id = 'treasury'
+    module_id = 'Treasury'
     call_id = 'propose_spend'
 
     def process_search_index(self, db_session):
@@ -319,7 +319,7 @@ class TreasuryProposeSpend(ExtrinsicProcessor):
 
 class SudoSetKey(ExtrinsicProcessor):
 
-    module_id = 'sudo'
+    module_id = 'Sudo'
     call_id = 'set_key'
 
     def sequencing_hook(self, db_session, parent_block, parent_sequenced_block):

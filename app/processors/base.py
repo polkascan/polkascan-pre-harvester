@@ -44,15 +44,15 @@ class ProcessorRegistry(metaclass=Singleton):
 
     def __init__(self):
         for cls in self.all_subclasses(EventProcessor):
-            key = '{}-{}'.format(cls.module_id, cls.event_id)
+            key = '{}-{}'.format(cls.module_id.lower(), cls.event_id)
 
             if key not in self.registry['event']:
                 self.registry['event'][key] = []
 
-            self.registry['event']['{}-{}'.format(cls.module_id, cls.event_id)].append(cls)
+            self.registry['event'][key].append(cls)
 
         for cls in self.all_subclasses(ExtrinsicProcessor):
-            key = '{}-{}'.format(cls.module_id, cls.call_id)
+            key = '{}-{}'.format(cls.module_id.lower(), cls.call_id)
 
             if key not in self.registry['extrinsic']:
                 self.registry['extrinsic'][key] = []
@@ -63,10 +63,10 @@ class ProcessorRegistry(metaclass=Singleton):
             self.registry['block'].append(cls)
 
     def get_event_processors(self, module_id, event_id):
-        return self.registry['event'].get('{}-{}'.format(module_id, event_id), [])
+        return self.registry['event'].get('{}-{}'.format(module_id.lower(), event_id), [])
 
     def get_extrinsic_processors(self, module_id, call_id):
-        return self.registry['extrinsic'].get('{}-{}'.format(module_id, call_id), [])
+        return self.registry['extrinsic'].get('{}-{}'.format(module_id.lower(), call_id), [])
 
     def get_block_processors(self):
         return self.registry['block']
