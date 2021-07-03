@@ -33,6 +33,7 @@ from app.settings import ACCOUNT_AUDIT_TYPE_NEW, ACCOUNT_AUDIT_TYPE_REAPED, ACCO
     IDENTITY_JUDGEMENT_TYPE_GIVEN
 
 from scalecodec.exceptions import RemainingScaleBytesNotEmptyException
+from sqlalchemy.exc import SQLAlchemyError
 from substrateinterface import SubstrateInterface
 from substrateinterface.exceptions import StorageFunctionNotFound
 
@@ -1393,7 +1394,9 @@ class AssetsAssetRegisteredEventProcessor(EventProcessor):
                 name=extrinsic.params[1]['value'],
                 is_mintable=True if extrinsic.params[3]['value'] == 'true' else False
             )
-            data_asset.save(db_session)
+            existing_assset = Asset.query(db_session).filter(Asset.asset_id == data_asset.asset_id).first()
+            if not existing_assset:
+                data_asset.save(db_session)
         else:
             #XYK pool creation (aka LP token) or Ethereum bridge
             #don't process it for now
