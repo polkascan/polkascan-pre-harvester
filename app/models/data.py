@@ -778,3 +778,19 @@ class Asset(BaseModel):
     is_mintable = sa.Column(sa.Boolean(), nullable=True, index=True)
     name = sa.Column(sa.String(128), nullable=False, index=True)
 
+
+class AssetBalance(BaseModel):
+    __tablename__ = "data_asset_balance"
+    __table_args__ = (sa.UniqueConstraint("asset_id", "account_id"),)
+
+    asset_id = sa.Column(sa.ForeignKey(Asset.id), primary_key=True, nullable=False)
+    account_id = sa.Column(sa.ForeignKey(Account.id), primary_key=True, nullable=False)
+
+    balance_free = sa.Column(
+        sa.Numeric(precision=65, scale=0), nullable=False, index=True
+    )
+    balance_frozen = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+    balance_reserved = sa.Column(sa.Numeric(precision=65, scale=0), nullable=False)
+
+    asset = relationship(Asset, backref="balances", cascade="all, delete")
+    account = relationship(Account, backref="assets", cascade="all, delete")
