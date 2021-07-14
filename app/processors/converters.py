@@ -41,7 +41,7 @@ from substrateinterface.utils.hasher import xxh128
 from app.models.data import Extrinsic, Block, Event, Runtime, RuntimeModule, RuntimeCall, RuntimeCallParam, \
     RuntimeEvent, RuntimeEventAttribute, RuntimeType, RuntimeStorage, BlockTotal, RuntimeConstant, AccountAudit, \
     AccountIndexAudit, ReorgBlock, ReorgExtrinsic, ReorgEvent, ReorgLog, RuntimeErrorMessage, Account, \
-    AccountInfoSnapshot, SearchIndex, Asset
+    AccountInfoSnapshot, SearchIndex, Asset, AssetBalance
 
 
 if settings.DEBUG:
@@ -1043,6 +1043,60 @@ class PolkascanHarvesterService(BaseService):
                     event_processor.process_search_index(self.db_session)
 
             self.db_session.commit()
+
+    def create_full_asset_balance_snaphot(self, block_id):
+        block_hash = self.substrate.get_block_hash(block_id)
+        # get balances storage prefix
+        storage_key_prefix = self.substrate.generate_storage_hash(
+            storage_module="Tokens",
+            storage_function="Accounts",
+            metadata_version=settings.SUBSTRATE_METADATA_VERSION,
+        )
+        page_size = 1000
+        # get all keys
+        keys = []
+        start_key = None
+        while True:
+            # Retrieve storage keys
+            response = self.substrate.rpc_request(
+                method="state_getKeysPaged",
+                params=[storage_key_prefix, page_size, start_key, block_hash],
+            )
+            if len(response["result"]) < page_size:
+                # end
+                break
+            keys.extend(response["result"])
+            start_key = keys[-1]
+        # get all values
+        response = self.substrate.rpc_request(
+            method="state_queryStorageAt", params=[keys, block_hash]
+        )
+        # save to db
+        assets = {a.asset_id: a for a in Asset.query(self.db_session)}
+        accounts = [
+            account[0] for account in self.db_session.query(distinct(Account.id))
+        ]
+        self.db_session.execute('truncate table {}'.format(AssetBalance.__tablename__))
+        for result_group in response["result"]:
+            for item in result_group["changes"]:
+                key = item[0][len(storage_key_prefix) :]
+                value = item[1]
+                account_id = key[32:][:64]
+                if account_id not in accounts:
+                    continue
+                asset_id = "0x" + key[-64:]
+                if asset_id not in assets:
+                    continue
+                # 0x + 3 * 32 byte ints
+                assert len(value) == 2 + 3 * 32, len(value)
+                free, reserved, frozen = value[2:34], value[34:-32], value[-32:]
+                AssetBalance(
+                    asset_id=assets[asset_id].id,
+                    account_id=account_id,
+                    balance_free=int(free, 16),
+                    balance_frozen=int(frozen, 16),
+                    balance_reserved=int(reserved, 16),
+                ).save(self.db_session)
 
     def create_full_balance_snaphot(self, block_id):
 

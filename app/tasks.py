@@ -390,6 +390,7 @@ def update_balances_in_block(self, block_id):
     )
 
     harvester.create_full_balance_snaphot(block_id)
+    harvester.create_full_asset_balance_snaphot(block_id)
     self.session.commit()
 
     harvester.update_account_balances()
