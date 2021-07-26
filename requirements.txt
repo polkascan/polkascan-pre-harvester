@@ -18,7 +18,6 @@ Mako~=1.0.8
 MarkupSafe~=1.1.1
 meinheld~=1.0.2
 more-itertools~=6.0.0
-mysql-connector~=2.1.7
 mysql-connector-python~=8.0.15
 packaging~=19.1
 pluggy~=0.9.0
