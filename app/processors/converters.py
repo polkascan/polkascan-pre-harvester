@@ -1053,50 +1053,50 @@ class PolkascanHarvesterService(BaseService):
             metadata_version=settings.SUBSTRATE_METADATA_VERSION,
         )
         page_size = 1000
-        # get all keys
-        keys = []
-        start_key = None
-        while True:
-            # Retrieve storage keys
-            response = self.substrate.rpc_request(
-                method="state_getKeysPaged",
-                params=[storage_key_prefix, page_size, start_key, block_hash],
-            )
-            if len(response["result"]) < page_size:
-                # end
-                break
-            keys.extend(response["result"])
-            start_key = keys[-1]
-        # get all values
-        response = self.substrate.rpc_request(
-            method="state_queryStorageAt", params=[keys, block_hash]
-        )
-        # save to db
         assets = {a.asset_id: a for a in Asset.query(self.db_session)}
         accounts = [
             account[0] for account in self.db_session.query(distinct(Account.id))
         ]
-        self.db_session.execute('truncate table {}'.format(AssetBalance.__tablename__))
-        for result_group in response["result"]:
-            for item in result_group["changes"]:
-                key = item[0][len(storage_key_prefix) :]
-                value = item[1]
-                account_id = key[32:][:64]
-                if account_id not in accounts:
-                    continue
-                asset_id = "0x" + key[-64:]
-                if asset_id not in assets:
-                    continue
-                # 0x + 3 * 32 byte ints
-                assert len(value) == 2 + 3 * 32, len(value)
-                free, reserved, frozen = value[2:34], value[34:-32], value[-32:]
-                AssetBalance(
-                    asset_id=assets[asset_id].id,
-                    account_id=account_id,
-                    balance_free=int(free, 16),
-                    balance_frozen=int(frozen, 16),
-                    balance_reserved=int(reserved, 16),
-                ).save(self.db_session)
+        # get all values
+        start_key = None
+        asset_balances = []
+        while True:
+            keys = self.substrate.rpc_request(
+                method="state_getKeysPaged",
+                params=[storage_key_prefix, page_size, start_key, block_hash],
+            )
+            values = self.substrate.rpc_request(
+                method="state_queryStorageAt", params=[keys["result"], block_hash]
+            )
+            for result_group in values["result"]:
+                for item in result_group["changes"]:
+                    key = item[0][len(storage_key_prefix) :]
+                    value = item[1]
+                    account_id = key[32:][:64]
+                    if account_id not in accounts:
+                        continue
+                    asset_id = "0x" + key[-64:]
+                    if asset_id not in assets:
+                        continue
+                    # 0x + 3 * 32 byte ints
+                    assert len(value) == 2 + 3 * 32, len(value)
+                    free, reserved, frozen = value[2:34], value[34:-32], value[-32:]
+                    asset_balances.append(
+                        AssetBalance(
+                            asset_id=assets[asset_id].id,
+                            account_id=account_id,
+                            balance_free=int(free, 16),
+                            balance_frozen=int(frozen, 16),
+                            balance_reserved=int(reserved, 16),
+                        )
+                    )
+            if len(keys["result"]) < page_size:
+                # end
+                break
+            start_key = keys["result"][-1]
+        # save to db
+        self.db_session.execute("truncate table {}".format(AssetBalance.__tablename__))
+        self.db_session.add_all(asset_balances)
 
     def create_full_balance_snaphot(self, block_id):
 
