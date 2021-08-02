@@ -298,14 +298,17 @@ class NewSessionEventProcessor(EventProcessor):
                             metadata_version=SUBSTRATE_METADATA_VERSION
                         ) or []
                     except RemainingScaleBytesNotEmptyException:
-                        validator_session_list = substrate.get_storage(
-                            block_hash=self.block.hash,
-                            module="Session",
-                            function="QueuedKeys",
-                            return_scale_type='Vec<(ValidatorId, EdgewareKeys)>',
-                            hasher=storage_call.type_hasher,
-                            metadata_version=SUBSTRATE_METADATA_VERSION
-                        ) or []
+                        try:
+                            validator_session_list = substrate.get_storage(
+                                block_hash=self.block.hash,
+                                module="Session",
+                                function="QueuedKeys",
+                                return_scale_type='Vec<(ValidatorId, EdgewareKeys)>',
+                                hasher=storage_call.type_hasher,
+                                metadata_version=SUBSTRATE_METADATA_VERSION
+                            ) or []
+                        except RemainingScaleBytesNotEmptyException:
+                            validator_session_list = []
 
                 # build lookup dict
                 validation_session_lookup = {}
@@ -345,7 +348,7 @@ class NewSessionEventProcessor(EventProcessor):
                             block_hash=self.block.hash,
                             module="Staking",
                             function="Bonded",
-                            params=validator_stash,
+                            params=[validator_stash],
                             return_scale_type=storage_call.get_return_type(),
                             hasher=storage_call.type_hasher,
                             metadata_version=SUBSTRATE_METADATA_VERSION
@@ -375,7 +378,7 @@ class NewSessionEventProcessor(EventProcessor):
                             block_hash=self.block.hash,
                             module="Staking",
                             function="Ledger",
-                            params=validator_controller,
+                            params=[validator_controller],
                             return_scale_type=storage_call.get_return_type(),
                             hasher=storage_call.type_hasher,
                             metadata_version=SUBSTRATE_METADATA_VERSION
@@ -399,7 +402,7 @@ class NewSessionEventProcessor(EventProcessor):
                             block_hash=self.block.hash,
                             module="Session",
                             function="NextKeyFor",
-                            params=validator_controller,
+                            params=[validator_controller],
                             return_scale_type=storage_call.get_return_type(),
                             hasher=storage_call.type_hasher,
                             metadata_version=SUBSTRATE_METADATA_VERSION
@@ -422,7 +425,7 @@ class NewSessionEventProcessor(EventProcessor):
                         block_hash=self.block.hash,
                         module="Staking",
                         function="Validators",
-                        params=validator_stash,
+                        params=[validator_stash],
                         return_scale_type=storage_call.get_return_type(),
                         hasher=storage_call.type_hasher,
                         metadata_version=SUBSTRATE_METADATA_VERSION
@@ -443,7 +446,7 @@ class NewSessionEventProcessor(EventProcessor):
                         block_hash=self.block.hash,
                         module="Staking",
                         function="Stakers",
-                        params=validator_stash,
+                        params=[validator_stash],
                         return_scale_type=storage_call.get_return_type(),
                         hasher=storage_call.type_hasher,
                         metadata_version=SUBSTRATE_METADATA_VERSION
