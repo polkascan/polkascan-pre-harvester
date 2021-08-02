@@ -48,5 +48,5 @@ py-sr25519-bindings>=0.1.2
 py-ed25519-bindings>=0.1.2
 py-bip39-bindings>=0.1.6
 
-scalecodec>=0.10.62
-substrate-interface>=0.11.18
+scalecodec~=0.11.17
+substrate-interface~=0.13.11
