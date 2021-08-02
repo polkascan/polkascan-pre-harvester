@@ -95,7 +95,6 @@ class PolkascanHarvesterService(BaseService):
             storage_key_prefix = self.substrate.generate_storage_hash(
                 storage_module='System',
                 storage_function='Account',
-                metadata_version=settings.SUBSTRATE_METADATA_VERSION
             )
 
             rpc_result = self.substrate.rpc_request(
@@ -1027,13 +1026,12 @@ class PolkascanHarvesterService(BaseService):
         )
 
         if storage_method:
-            if storage_method.get("type_hasher_key1") == "Blake2_128Concat":
+            if storage_method.type['MapType']['hasher'] == "Blake2_128Concat":
 
                 # get balances storage prefix
                 storage_key_prefix = self.substrate.generate_storage_hash(
                     storage_module='System',
                     storage_function='Account',
-                    metadata_version=settings.SUBSTRATE_METADATA_VERSION
                 )
 
                 rpc_result = self.substrate.rpc_request(
