@@ -1052,7 +1052,6 @@ class PolkascanHarvesterService(BaseService):
             storage_function="Accounts",
             metadata_version=settings.SUBSTRATE_METADATA_VERSION,
         )
-        page_size = 1000
         assets = {a.asset_id: a for a in Asset.query(self.db_session)}
         accounts = [
             account[0] for account in self.db_session.query(distinct(Account.id))
@@ -1063,7 +1062,12 @@ class PolkascanHarvesterService(BaseService):
         while True:
             keys = self.substrate.rpc_request(
                 method="state_getKeysPaged",
-                params=[storage_key_prefix, page_size, start_key, block_hash],
+                params=[
+                    storage_key_prefix,
+                    settings.QUERY_STORAGE_PAGE_SIZE,
+                    start_key,
+                    block_hash,
+                ],
             )
             values = self.substrate.rpc_request(
                 method="state_queryStorageAt", params=[keys["result"], block_hash]
@@ -1090,7 +1094,7 @@ class PolkascanHarvesterService(BaseService):
                             balance_reserved=int(reserved, 16),
                         )
                     )
-            if len(keys["result"]) < page_size:
+            if len(keys["result"]) < settings.QUERY_STORAGE_PAGE_SIZE:
                 # end
                 break
             start_key = keys["result"][-1]
