@@ -3,14 +3,14 @@ from scalecodec.type_registry import load_type_registry_file
 from substrateinterface import SubstrateInterface
 
 substrate = SubstrateInterface(
-    url='wss://ws.archivenode-1.ar1.sora2.soramitsu.co.jp/',
+    url='wss://ws.stage.sora2.soramitsu.co.jp/',
     type_registry_preset='default',
     type_registry=load_type_registry_file('../harvester/app/type_registry/custom_types.json'),
 )
 
-block_hash = substrate.get_block_hash(block_id=442249)
+block_hash = substrate.get_block_hash(block_id=1102859)
 
-extrinsics = substrate.get_block_extrinsics(block_hash=block_hash)
+extrinsics = substrate.get_block(block_hash=block_hash)['extrinsics']
 
 print('Extrinsincs:', json.dumps([e.value for e in extrinsics], indent=4))
 
