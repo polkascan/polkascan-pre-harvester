@@ -1085,13 +1085,18 @@ class PolkascanHarvesterService(BaseService):
                     # 0x + 3 * 32 byte ints
                     assert len(value) == 2 + 3 * 32, len(value)
                     free, reserved, frozen = value[2:34], value[34:-32], value[-32:]
+                    # decode values
+                    free, reserved, frozen = [
+                        int("".join(list(map("".join, zip(x[-2::-2], x[-1::-2])))), 16)
+                        for x in [free, reserved, frozen]
+                    ]
                     asset_balances.append(
                         AssetBalance(
                             asset_id=assets[asset_id].id,
                             account_id=account_id,
-                            balance_free=int(free, 16),
-                            balance_frozen=int(frozen, 16),
-                            balance_reserved=int(reserved, 16),
+                            balance_free=free,
+                            balance_frozen=frozen,
+                            balance_reserved=reserved,
                         )
                     )
             if len(keys["result"]) < settings.QUERY_STORAGE_PAGE_SIZE:
@@ -1099,8 +1104,11 @@ class PolkascanHarvesterService(BaseService):
                 break
             start_key = keys["result"][-1]
         # save to db
-        self.db_session.execute("truncate table {}".format(AssetBalance.__tablename__))
-        self.db_session.add_all(asset_balances)
+        if asset_balances:
+            self.db_session.execute(
+                "truncate table {}".format(AssetBalance.__tablename__)
+            )
+            self.db_session.add_all(asset_balances)
 
     def create_full_balance_snaphot(self, block_id):
 
