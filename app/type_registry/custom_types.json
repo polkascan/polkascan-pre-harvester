@@ -1,5 +1,5 @@
 {
-  "runtime_id": 9,
+  "runtime_id": 8,
   "versioning": [
     {
       "runtime_range": [
@@ -1571,6 +1571,7 @@
         "BTreeSet<SignatureParams>": "Vec<SignatureParams>",
         "BTreeSet<H256>": "Vec<H256>",
         "BTreeSet<AssetId>": "Vec<AssetId>",
+        "BTreeSet<AssetIdOf>": "Vec<AssetIdOf>",
         "BTreeSet<AccountId>": "Vec<AccountId>",
         "BTreeSet<LiquiditySourceType>": "Vec<LiquiditySourceType>",
         "ecdsa::Public": "[u8; 33]",
