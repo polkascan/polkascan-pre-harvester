@@ -1,15 +1,16 @@
 #! /usr/bin/env sh
+LOG="$(date '+[%Y-%m-%d %T %z] [entrypoint] [INFO]')"
 
 if [ -z $ENVIRONMENT ] || [ "$ENVIRONMENT" = "dev" ]; then
     ENVIRONMENT="dev"
 fi
 
-echo "==========================="
-echo "Environment: $ENVIRONMENT"
-echo "==========================="
+echo "$LOG ==========================="
+echo "$LOG Environment: $ENVIRONMENT"
+echo "$LOG ==========================="
 
 if [ "$ENVIRONMENT" = "prod" ]; then
-  echo "Wait for database..."
+  echo "$LOG Wait for database..."
   # Let the DB start
   sleep 10;
 fi
@@ -17,12 +18,12 @@ fi
 # Set path
 export PYTHONPATH=$PYTHONPATH:$PWD:$PWD/py-substrate-interface/:$PWD/py-scale-codec/
 
-echo "Running migrations..."
+echo "$LOG Running migrations..."
 
 # Run migrations
 alembic upgrade head
 
-echo "Running gunicorn..."
+echo "$LOG Running gunicorn..."
 
 if [ "$ENVIRONMENT" = "dev" ]; then
     gunicorn -b 0.0.0.0:8001 --workers=2 app.main:app --reload --timeout 600
