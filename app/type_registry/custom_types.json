@@ -1,5 +1,5 @@
 {
-  "runtime_id": 8,
+  "runtime_id": 19,
   "versioning": [
     {
       "runtime_range": [
@@ -730,7 +730,19 @@
         },
         "MultiCurrencyBalance": "Balance",
         "MultiCurrencyBalanceOf": "MultiCurrencyBalance",
-        "MultisigAccount": "Null",
+        "MultisigAccount": {
+          "type": "struct",
+          "type_mapping": [
+            [
+              "signatories",
+              "Vec<AccountId>"
+            ],
+            [
+              "threshold",
+              "u8"
+            ]
+          ]
+        },
         "OffchainRequest": {
           "type": "enum",
           "type_mapping": [
@@ -1566,7 +1578,6 @@
           ]
         },
         "ValidationFunction": "Null",
-        "Timepoint": "BridgeTimepoint",
         "BTreeMap<RewardReason,Balance>": "Vec<(RewardReason,Balance)>",
         "BTreeSet<SignatureParams>": "Vec<SignatureParams>",
         "BTreeSet<H256>": "Vec<H256>",
@@ -1590,5 +1601,35 @@
         }
       }
     }
+  ],
+  "runtime_upgrades": [
+    [
+      0,
+      1
+    ],
+    [
+      489600,
+      3
+    ],
+    [
+      616533,
+      4
+    ],
+    [
+      1243341,
+      7
+    ],
+    [
+      1403659,
+      8
+    ],
+    [
+      1744716,
+      9
+    ],
+    [
+      2829626,
+      19
+    ]
   ]
 }
